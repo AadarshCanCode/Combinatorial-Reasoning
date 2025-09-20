@@ -458,7 +458,7 @@ We use [Semantic Versioning](https://semver.org/):
 
 - **GitHub Issues**: Bug reports and feature requests
 - **GitHub Discussions**: General questions and ideas
-- **Email**: support@crllm.com
+- **Email**: aadarshpathre.23@gmail.com
 
 ### Resources
 
@@ -474,4 +474,4 @@ Contributors will be recognized in:
 - Release notes
 - Project documentation
 
-Thank you for contributing to CRLLM! 🚀
+Thank you for contributing to Us! 🚀
