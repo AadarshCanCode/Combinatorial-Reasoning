@@ -16,8 +16,8 @@ from dwave.system import DWaveSampler, EmbeddingComposite
 from qiskit_optimization import QuadraticProgram
 from qiskit_optimization.algorithms import RecursiveMinimumEigenOptimizer
 from qiskit_optimization.converters import QuadraticProgramToQubo
-from qiskit.algorithms import QAOA
-from qiskit import Aer
+from qiskit_algorithms import QAOA
+from qiskit_aer import Aer
 
 
 @dataclass

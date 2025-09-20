@@ -449,7 +449,7 @@ def main():
     print("   If it doesn't open, check the terminal for the local URL.")
     
     interface.launch(
-        server_name="0.0.0.0",
+        server_name="127.0.0.1",
         server_port=7860,
         share=False,
         debug=False,
