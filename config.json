@@ -1,0 +1,47 @@
+{
+  "use_retrieval": true,
+  "use_verification": true,
+  "task_interface": {
+    "domain_detection": true,
+    "complexity_assessment": true
+  },
+  "retrieval": {
+    "collection_name": "crllm_knowledge",
+    "embedding_model": "all-MiniLM-L6-v2",
+    "top_k": 5,
+    "min_relevance": 0.3
+  },
+  "reason_sampler": {
+    "model": "gpt-3.5-turbo",
+    "num_samples": 5,
+    "temperature": 0.7,
+    "max_tokens": 1000
+  },
+  "semantic_filter": {
+    "similarity_threshold": 0.8,
+    "quality_threshold": 0.3,
+    "model_name": "all-MiniLM-L6-v2"
+  },
+  "combinatorial_optimizer": {
+    "solver_type": "classical",
+    "max_selections": 5,
+    "diversity_weight": 0.5,
+    "utility_weight": 0.5
+  },
+  "reason_orderer": {
+    "strategy": "semantic_flow",
+    "max_branching": 2
+  },
+  "final_inference": {
+    "model": "gpt-3.5-turbo",
+    "strategy": "direct_synthesis",
+    "max_tokens": 1000,
+    "temperature": 0.7
+  },
+  "reason_verifier": {
+    "verification_level": "intermediate",
+    "check_circularity": true,
+    "check_contradictions": true
+  }
+}
+
