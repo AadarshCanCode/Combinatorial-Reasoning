@@ -635,16 +635,18 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 📞 Support
 
 - **Documentation**: [https://crllm.readthedocs.io](https://crllm.readthedocs.io)
-- **Issues**: [GitHub Issues](https://github.com/crllm/crllm/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/crllm/crllm/discussions)
+- **Issues**: [GitHub Issues](https://github.com/your-username/CRLLM/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/your-username/CRLLM/discussions)
 - **Email**: support@crllm.com
 
 ## 🔗 Related Projects
 
-- [Chain-of-Thought Prompting](https://arxiv.org/abs/2201.11903)
-- [Tree-of-Thought Reasoning](https://arxiv.org/abs/2305.10601)
-- [Combinatorial Optimization](https://en.wikipedia.org/wiki/Combinatorial_optimization)
-- [Retrieval-Augmented Generation](https://arxiv.org/abs/2005.11401)
+- [Chain-of-Thought Prompting](https://arxiv.org/abs/2201.11903) - Original CoT paper
+- [Tree-of-Thought Reasoning](https://arxiv.org/abs/2305.10601) - ToT reasoning framework
+- [Combinatorial Optimization](https://en.wikipedia.org/wiki/Combinatorial_optimization) - QUBO optimization
+- [Retrieval-Augmented Generation](https://arxiv.org/abs/2005.11401) - RAG methodology
+- [Icosa](https://github.com/your-username/icosa) - Related reasoning framework
+- [Combinatorial Reasoning Paper](https://arxiv.org/abs/your-paper-id) - Research paper
 
 ---
 

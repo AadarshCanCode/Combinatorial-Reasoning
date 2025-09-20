@@ -59,11 +59,18 @@ class QUBOOptimizer(BaseOptimizer):
         Initialize QUBO optimizer.
         
         Args:
-            solver_type: Type of solver ('classical', 'quantum', 'qaoa')
+            solver_type: Type of solver ('classical', 'quantum', 'qaoa', 'simulated_annealing', 'genetic')
             config: Additional configuration
         """
         self.solver_type = solver_type
         self.config = config or {}
+        
+        # Load configuration parameters
+        self.max_selections = self.config.get('max_selections', 5)
+        self.diversity_weight = self.config.get('diversity_weight', 0.5)
+        self.utility_weight = self.config.get('utility_weight', 0.5)
+        self.timeout = self.config.get('timeout', 30)
+        self.num_reads = self.config.get('num_reads', 100)
         
         # Initialize solver based on type
         self.solver = self._initialize_solver()
@@ -78,6 +85,10 @@ class QUBOOptimizer(BaseOptimizer):
                 return "classical"
         elif self.solver_type == "qaoa":
             return "qaoa"
+        elif self.solver_type == "simulated_annealing":
+            return "simulated_annealing"
+        elif self.solver_type == "genetic":
+            return "genetic"
         else:
             return "classical"
     
@@ -122,6 +133,10 @@ class QUBOOptimizer(BaseOptimizer):
             selected_indices = self._solve_quantum(qubo_matrix, max_selections)
         elif self.solver_type == "qaoa":
             selected_indices = self._solve_qaoa(qubo_matrix, max_selections)
+        elif self.solver_type == "simulated_annealing":
+            selected_indices = self._solve_simulated_annealing(qubo_matrix, max_selections)
+        elif self.solver_type == "genetic":
+            selected_indices = self._solve_genetic(qubo_matrix, max_selections)
         else:
             selected_indices = self._solve_classical(qubo_matrix, max_selections)
         
@@ -354,6 +369,161 @@ class QUBOOptimizer(BaseOptimizer):
         except Exception as e:
             print(f"Quantum solving failed, falling back to classical: {e}")
             return self._solve_classical(qubo_matrix, max_selections)
+    
+    def _solve_simulated_annealing(
+        self,
+        qubo_matrix: np.ndarray,
+        max_selections: int
+    ) -> List[int]:
+        """Solve QUBO using simulated annealing."""
+        n = qubo_matrix.shape[0]
+        
+        def objective(x):
+            return x.T @ qubo_matrix @ x
+        
+        # Simulated annealing parameters
+        initial_temp = 100.0
+        final_temp = 0.1
+        cooling_rate = 0.95
+        max_iterations = 1000
+        
+        # Initialize with random solution
+        current_solution = np.zeros(n)
+        current_solution[:max_selections] = 1
+        np.random.shuffle(current_solution)
+        
+        current_energy = objective(current_solution)
+        best_solution = current_solution.copy()
+        best_energy = current_energy
+        
+        temperature = initial_temp
+        
+        for iteration in range(max_iterations):
+            # Generate neighbor solution
+            neighbor = current_solution.copy()
+            
+            # Swap two random positions
+            indices = np.random.choice(n, 2, replace=False)
+            neighbor[indices[0]], neighbor[indices[1]] = neighbor[indices[1]], neighbor[indices[0]]
+            
+            # Ensure exactly max_selections are selected
+            if np.sum(neighbor) != max_selections:
+                # Fix the solution
+                selected_count = int(np.sum(neighbor))
+                if selected_count > max_selections:
+                    # Remove excess selections
+                    selected_indices = np.where(neighbor == 1)[0]
+                    remove_indices = np.random.choice(selected_indices, selected_count - max_selections, replace=False)
+                    neighbor[remove_indices] = 0
+                elif selected_count < max_selections:
+                    # Add more selections
+                    unselected_indices = np.where(neighbor == 0)[0]
+                    add_indices = np.random.choice(unselected_indices, max_selections - selected_count, replace=False)
+                    neighbor[add_indices] = 1
+            
+            neighbor_energy = objective(neighbor)
+            
+            # Accept or reject based on temperature
+            if neighbor_energy < current_energy or np.random.random() < np.exp(-(neighbor_energy - current_energy) / temperature):
+                current_solution = neighbor
+                current_energy = neighbor_energy
+                
+                if current_energy < best_energy:
+                    best_solution = current_solution.copy()
+                    best_energy = current_energy
+            
+            # Cool down
+            temperature *= cooling_rate
+            
+            if temperature < final_temp:
+                break
+        
+        # Extract selected indices
+        selected_indices = [i for i, val in enumerate(best_solution) if val > 0.5]
+        return selected_indices[:max_selections]
+    
+    def _solve_genetic(
+        self,
+        qubo_matrix: np.ndarray,
+        max_selections: int
+    ) -> List[int]:
+        """Solve QUBO using genetic algorithm."""
+        n = qubo_matrix.shape[0]
+        
+        def objective(x):
+            return x.T @ qubo_matrix @ x
+        
+        # Genetic algorithm parameters
+        population_size = 50
+        generations = 100
+        mutation_rate = 0.1
+        crossover_rate = 0.8
+        
+        # Initialize population
+        population = []
+        for _ in range(population_size):
+            individual = np.zeros(n)
+            selected_indices = np.random.choice(n, max_selections, replace=False)
+            individual[selected_indices] = 1
+            population.append(individual)
+        
+        for generation in range(generations):
+            # Evaluate fitness
+            fitness_scores = [-objective(individual) for individual in population]  # Negative because we want to minimize
+            
+            # Selection (tournament selection)
+            new_population = []
+            for _ in range(population_size):
+                # Tournament selection
+                tournament_size = 3
+                tournament_indices = np.random.choice(population_size, tournament_size, replace=False)
+                tournament_fitness = [fitness_scores[i] for i in tournament_indices]
+                winner_index = tournament_indices[np.argmax(tournament_fitness)]
+                new_population.append(population[winner_index].copy())
+            
+            # Crossover
+            for i in range(0, population_size - 1, 2):
+                if np.random.random() < crossover_rate:
+                    parent1 = new_population[i]
+                    parent2 = new_population[i + 1]
+                    
+                    # Single-point crossover
+                    crossover_point = np.random.randint(1, n)
+                    child1 = np.concatenate([parent1[:crossover_point], parent2[crossover_point:]])
+                    child2 = np.concatenate([parent2[:crossover_point], parent1[crossover_point:]])
+                    
+                    # Ensure exactly max_selections are selected
+                    for child in [child1, child2]:
+                        selected_count = int(np.sum(child))
+                        if selected_count > max_selections:
+                            selected_indices = np.where(child == 1)[0]
+                            remove_indices = np.random.choice(selected_indices, selected_count - max_selections, replace=False)
+                            child[remove_indices] = 0
+                        elif selected_count < max_selections:
+                            unselected_indices = np.where(child == 0)[0]
+                            add_indices = np.random.choice(unselected_indices, max_selections - selected_count, replace=False)
+                            child[add_indices] = 1
+                    
+                    new_population[i] = child1
+                    new_population[i + 1] = child2
+            
+            # Mutation
+            for individual in new_population:
+                if np.random.random() < mutation_rate:
+                    # Swap two random positions
+                    indices = np.random.choice(n, 2, replace=False)
+                    individual[indices[0]], individual[indices[1]] = individual[indices[1]], individual[indices[0]]
+            
+            population = new_population
+        
+        # Find best individual
+        final_fitness = [-objective(individual) for individual in population]
+        best_index = np.argmax(final_fitness)
+        best_individual = population[best_index]
+        
+        # Extract selected indices
+        selected_indices = [i for i, val in enumerate(best_individual) if val > 0.5]
+        return selected_indices[:max_selections]
     
     def _solve_qaoa(
         self,

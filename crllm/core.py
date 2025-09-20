@@ -5,6 +5,10 @@ Core CRLLM Pipeline orchestrator that coordinates all modules.
 from typing import Dict, List, Any, Optional, Union
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
+import os
+import json
+import logging
+from pathlib import Path
 
 from .modules import (
     TaskAgnosticInterface,
@@ -17,6 +21,9 @@ from .modules import (
     ReasonVerifier,
 )
 
+# Set up logging
+logger = logging.getLogger(__name__)
+
 
 @dataclass
 class ReasoningResult:
@@ -26,6 +33,129 @@ class ReasoningResult:
     final_answer: str
     confidence: float
     metadata: Dict[str, Any]
+
+
+def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
+    """Load configuration from file and environment variables.
+    
+    Args:
+        config_path: Path to configuration file. If None, looks for config.json
+        
+    Returns:
+        Merged configuration dictionary
+    """
+    # Default configuration
+    default_config = {
+        "use_retrieval": False,
+        "use_verification": False,
+        "task_interface": {},
+        "retrieval": {},
+        "reason_sampler": {},
+        "semantic_filter": {},
+        "combinatorial_optimizer": {},
+        "reason_orderer": {},
+        "final_inference": {},
+        "reason_verifier": {}
+    }
+    
+    # Load from file if provided
+    file_config = {}
+    if config_path and Path(config_path).exists():
+        try:
+            with open(config_path, 'r') as f:
+                file_config = json.load(f)
+            logger.info(f"Loaded configuration from {config_path}")
+        except Exception as e:
+            logger.warning(f"Failed to load config from {config_path}: {e}")
+    elif Path("config.json").exists():
+        try:
+            with open("config.json", 'r') as f:
+                file_config = json.load(f)
+            logger.info("Loaded configuration from config.json")
+        except Exception as e:
+            logger.warning(f"Failed to load config.json: {e}")
+    
+    # Load from environment variables
+    env_config = {}
+    
+    # API Keys
+    if os.getenv('OPENAI_API_KEY'):
+        env_config.setdefault('reason_sampler', {})['api_key'] = os.getenv('OPENAI_API_KEY')
+        env_config.setdefault('final_inference', {})['api_key'] = os.getenv('OPENAI_API_KEY')
+    
+    if os.getenv('DWAVE_API_TOKEN'):
+        env_config.setdefault('combinatorial_optimizer', {})['api_token'] = os.getenv('DWAVE_API_TOKEN')
+    
+    if os.getenv('HUGGINGFACE_API_TOKEN'):
+        env_config.setdefault('reason_sampler', {})['hf_token'] = os.getenv('HUGGINGFACE_API_TOKEN')
+    
+    # Feature flags
+    if os.getenv('CRLLM_USE_RETRIEVAL', '').lower() in ('true', '1', 'yes'):
+        env_config['use_retrieval'] = True
+    
+    if os.getenv('CRLLM_USE_VERIFICATION', '').lower() in ('true', '1', 'yes'):
+        env_config['use_verification'] = True
+    
+    # Model configurations
+    if os.getenv('CRLLM_MODEL'):
+        env_config.setdefault('reason_sampler', {})['model'] = os.getenv('CRLLM_MODEL')
+        env_config.setdefault('final_inference', {})['model'] = os.getenv('CRLLM_MODEL')
+    
+    if os.getenv('CRLLM_EMBEDDING_MODEL'):
+        env_config.setdefault('semantic_filter', {})['model_name'] = os.getenv('CRLLM_EMBEDDING_MODEL')
+        env_config.setdefault('retrieval', {})['embedding_model'] = os.getenv('CRLLM_EMBEDDING_MODEL')
+    
+    # Merge configurations (file config overrides defaults, env overrides file)
+    config = default_config.copy()
+    config.update(file_config)
+    config.update(env_config)
+    
+    # Validate configuration
+    _validate_config(config)
+    
+    return config
+
+
+def _validate_config(config: Dict[str, Any]) -> None:
+    """Validate configuration parameters.
+    
+    Args:
+        config: Configuration dictionary to validate
+        
+    Raises:
+        ValueError: If configuration is invalid
+    """
+    # Validate boolean flags
+    for flag in ['use_retrieval', 'use_verification']:
+        if flag in config and not isinstance(config[flag], bool):
+            raise ValueError(f"{flag} must be a boolean")
+    
+    # Validate API keys if modules are enabled
+    if config.get('use_retrieval', False):
+        if not config.get('retrieval', {}).get('api_key') and not os.getenv('OPENAI_API_KEY'):
+            logger.warning("Retrieval enabled but no API key found")
+    
+    # Validate model names
+    for module in ['reason_sampler', 'final_inference']:
+        if module in config and 'model' in config[module]:
+            model = config[module]['model']
+            if not isinstance(model, str) or not model.strip():
+                raise ValueError(f"{module}.model must be a non-empty string")
+    
+    # Validate numeric parameters
+    numeric_params = [
+        ('reason_sampler', 'num_samples', 1, 20),
+        ('reason_sampler', 'temperature', 0.0, 2.0),
+        ('semantic_filter', 'similarity_threshold', 0.0, 1.0),
+        ('semantic_filter', 'quality_threshold', 0.0, 1.0),
+        ('combinatorial_optimizer', 'max_selections', 1, 50)
+    ]
+    
+    for module, param, min_val, max_val in numeric_params:
+        if module in config and param in config[module]:
+            value = config[module][param]
+            if not isinstance(value, (int, float)) or not (min_val <= value <= max_val):
+                raise ValueError(f"{module}.{param} must be between {min_val} and {max_val}")
 
 
 class CRLLMPipeline:
@@ -48,6 +178,7 @@ class CRLLMPipeline:
         final_inference: Optional[FinalInference] = None,
         reason_verifier: Optional[ReasonVerifier] = None,
         config: Optional[Dict[str, Any]] = None,
+        config_path: Optional[str] = None,
     ):
         """
         Initialize the CRLLM pipeline with optional modules.
@@ -62,16 +193,37 @@ class CRLLMPipeline:
             final_inference: Module for generating final answers
             reason_verifier: Optional module for verifying reasoning consistency
             config: Configuration dictionary for the pipeline
+            config_path: Path to configuration file
         """
-        self.task_interface = task_interface or TaskAgnosticInterface()
+        # Load configuration
+        if config is None:
+            config = load_config(config_path)
+        else:
+            # Merge with loaded config if config_path is provided
+            if config_path:
+                loaded_config = load_config(config_path)
+                loaded_config.update(config)
+                config = loaded_config
+        
+        self.config = config
+        
+        # Initialize modules with configuration
+        self.task_interface = task_interface or TaskAgnosticInterface(config.get('task_interface', {}))
         self.retrieval_module = retrieval_module
-        self.reason_sampler = reason_sampler or ReasonSampler()
-        self.semantic_filter = semantic_filter or SemanticFilter()
-        self.combinatorial_optimizer = combinatorial_optimizer or CombinatorialOptimizer()
-        self.reason_orderer = reason_orderer or ReasonOrderer()
-        self.final_inference = final_inference or FinalInference()
+        if config.get('use_retrieval', False):
+            self.retrieval_module = retrieval_module or RetrievalModule(config.get('retrieval', {}))
+        
+        self.reason_sampler = reason_sampler or ReasonSampler(config.get('reason_sampler', {}))
+        self.semantic_filter = semantic_filter or SemanticFilter(config.get('semantic_filter', {}))
+        self.combinatorial_optimizer = combinatorial_optimizer or CombinatorialOptimizer(config.get('combinatorial_optimizer', {}))
+        self.reason_orderer = reason_orderer or ReasonOrderer(config.get('reason_orderer', {}))
+        self.final_inference = final_inference or FinalInference(config.get('final_inference', {}))
+        
         self.reason_verifier = reason_verifier
-        self.config = config or {}
+        if config.get('use_verification', False):
+            self.reason_verifier = reason_verifier or ReasonVerifier(config.get('reason_verifier', {}))
+        
+        logger.info("CRLLM Pipeline initialized successfully")
         
     def process_query(
         self,
@@ -79,6 +231,8 @@ class CRLLMPipeline:
         domain: Optional[str] = None,
         use_retrieval: bool = False,
         use_verification: bool = False,
+        max_retries: int = 3,
+        retry_delay: float = 1.0,
         **kwargs
     ) -> ReasoningResult:
         """
@@ -89,82 +243,167 @@ class CRLLMPipeline:
             domain: Optional domain specification (e.g., 'causal', 'logical', 'arithmetic')
             use_retrieval: Whether to use knowledge retrieval
             use_verification: Whether to use reason verification
+            max_retries: Maximum number of retries for LLM calls
+            retry_delay: Delay between retries in seconds
             **kwargs: Additional parameters for specific modules
             
         Returns:
             ReasoningResult containing the final answer and reasoning chain
         """
-        # Step 1: Process input through task-agnostic interface
-        processed_query = self.task_interface.process_input(query, domain=domain)
+        import time
         
-        # Step 2: Optional knowledge retrieval
-        retrieved_knowledge = None
-        if use_retrieval and self.retrieval_module:
-            retrieved_knowledge = self.retrieval_module.retrieve(
-                processed_query, **kwargs.get('retrieval_kwargs', {})
+        start_time = time.time()
+        logger.info(f"Processing query: {str(query)[:100]}...")
+        
+        try:
+            # Step 1: Process input through task-agnostic interface
+            processed_query = self.task_interface.process_input(query, domain=domain)
+            logger.debug(f"Processed query: {processed_query.normalized_query}")
+            
+            # Step 2: Optional knowledge retrieval
+            retrieved_knowledge = None
+            if use_retrieval and self.retrieval_module:
+                try:
+                    retrieved_knowledge = self.retrieval_module.retrieve(
+                        processed_query, **kwargs.get('retrieval_kwargs', {})
+                    )
+                    logger.debug(f"Retrieved {len(retrieved_knowledge.documents) if retrieved_knowledge else 0} documents")
+                except Exception as e:
+                    logger.warning(f"Retrieval failed: {e}")
+                    retrieved_knowledge = None
+            
+            # Step 3: Generate candidate reasoning steps with retries
+            candidate_reasons = self._retry_llm_call(
+                lambda: self.reason_sampler.sample_reasons(
+                    processed_query, 
+                    domain=domain,
+                    retrieved_knowledge=retrieved_knowledge,
+                    **kwargs.get('sampling_kwargs', {})
+                ),
+                max_retries=max_retries,
+                retry_delay=retry_delay,
+                operation="reason sampling"
             )
-        
-        # Step 3: Generate candidate reasoning steps
-        candidate_reasons = self.reason_sampler.sample_reasons(
-            processed_query, 
-            domain=domain,
-            retrieved_knowledge=retrieved_knowledge,
-            **kwargs.get('sampling_kwargs', {})
-        )
-        
-        # Step 4: Semantic filtering to remove duplicates
-        filtered_reasons = self.semantic_filter.filter_reasons(
-            candidate_reasons, 
-            **kwargs.get('filtering_kwargs', {})
-        )
-        
-        # Step 5: Combinatorial optimization to select diverse, high-utility reasons
-        selected_reasons = self.combinatorial_optimizer.optimize_selection(
-            filtered_reasons,
-            processed_query,
-            **kwargs.get('optimization_kwargs', {})
-        )
-        
-        # Step 6: Order reasons into logical chain
-        ordered_reasons = self.reason_orderer.order_reasons(
-            selected_reasons,
-            processed_query,
-            **kwargs.get('ordering_kwargs', {})
-        )
-        
-        # Step 7: Optional reason verification
-        verified_reasons = ordered_reasons
-        if use_verification and self.reason_verifier:
-            verified_reasons = self.reason_verifier.verify_reasons(
-                ordered_reasons,
+            logger.debug(f"Generated {len(candidate_reasons)} candidate reasons")
+            
+            # Step 4: Semantic filtering to remove duplicates
+            filtered_reasons = self.semantic_filter.filter_reasons(
+                candidate_reasons, 
+                **kwargs.get('filtering_kwargs', {})
+            )
+            logger.debug(f"Filtered to {len(filtered_reasons)} reasons")
+            
+            # Step 5: Combinatorial optimization to select diverse, high-utility reasons
+            selected_reasons = self.combinatorial_optimizer.optimize_selection(
+                filtered_reasons,
                 processed_query,
-                **kwargs.get('verification_kwargs', {})
+                **kwargs.get('optimization_kwargs', {})
             )
+            logger.debug(f"Selected {len(selected_reasons)} reasons")
+            
+            # Step 6: Order reasons into logical chain
+            ordered_reasons = self.reason_orderer.order_reasons(
+                selected_reasons,
+                processed_query,
+                **kwargs.get('ordering_kwargs', {})
+            )
+            logger.debug(f"Ordered {len(ordered_reasons)} reasons")
+            
+            # Step 7: Optional reason verification
+            verified_reasons = ordered_reasons
+            if use_verification and self.reason_verifier:
+                try:
+                    verified_reasons = self.reason_verifier.verify_reasons(
+                        ordered_reasons,
+                        processed_query,
+                        **kwargs.get('verification_kwargs', {})
+                    )
+                    logger.debug(f"Verified {len(verified_reasons)} reasons")
+                except Exception as e:
+                    logger.warning(f"Verification failed: {e}")
+                    verified_reasons = ordered_reasons
+            
+            # Step 8: Generate final answer with retries
+            final_result = self._retry_llm_call(
+                lambda: self.final_inference.generate_answer(
+                    processed_query,
+                    verified_reasons,
+                    retrieved_knowledge=retrieved_knowledge,
+                    **kwargs.get('inference_kwargs', {})
+                ),
+                max_retries=max_retries,
+                retry_delay=retry_delay,
+                operation="final inference"
+            )
+            
+            processing_time = time.time() - start_time
+            logger.info(f"Query processed successfully in {processing_time:.2f}s")
+            
+            return ReasoningResult(
+                query=str(processed_query),
+                reasoning_chain=verified_reasons,
+                final_answer=final_result['answer'],
+                confidence=final_result.get('confidence', 0.0),
+                metadata={
+                    'domain': domain,
+                    'used_retrieval': use_retrieval and retrieved_knowledge is not None,
+                    'used_verification': use_verification and self.reason_verifier is not None,
+                    'num_candidates': len(candidate_reasons),
+                    'num_filtered': len(filtered_reasons),
+                    'num_selected': len(selected_reasons),
+                    'num_verified': len(verified_reasons),
+                    'processing_time': processing_time,
+                    **final_result.get('metadata', {})
+                }
+            )
+            
+        except Exception as e:
+            processing_time = time.time() - start_time
+            logger.error(f"Query processing failed after {processing_time:.2f}s: {e}")
+            
+            # Return error result
+            return ReasoningResult(
+                query=str(query),
+                reasoning_chain=[],
+                final_answer=f"Error processing query: {str(e)}",
+                confidence=0.0,
+                metadata={
+                    'domain': domain,
+                    'error': str(e),
+                    'processing_time': processing_time,
+                    'used_retrieval': False,
+                    'used_verification': False
+                }
+            )
+    
+    def _retry_llm_call(self, func, max_retries: int, retry_delay: float, operation: str):
+        """Retry an LLM call with exponential backoff.
         
-        # Step 8: Generate final answer
-        final_result = self.final_inference.generate_answer(
-            processed_query,
-            verified_reasons,
-            retrieved_knowledge=retrieved_knowledge,
-            **kwargs.get('inference_kwargs', {})
-        )
+        Args:
+            func: Function to retry
+            max_retries: Maximum number of retries
+            retry_delay: Base delay between retries
+            operation: Name of the operation for logging
+            
+        Returns:
+            Result of the function call
+            
+        Raises:
+            Exception: If all retries fail
+        """
+        import time
         
-        return ReasoningResult(
-            query=str(processed_query),
-            reasoning_chain=verified_reasons,
-            final_answer=final_result['answer'],
-            confidence=final_result.get('confidence', 0.0),
-            metadata={
-                'domain': domain,
-                'used_retrieval': use_retrieval and retrieved_knowledge is not None,
-                'used_verification': use_verification and self.reason_verifier is not None,
-                'num_candidates': len(candidate_reasons),
-                'num_filtered': len(filtered_reasons),
-                'num_selected': len(selected_reasons),
-                'num_verified': len(verified_reasons),
-                **final_result.get('metadata', {})
-            }
-        )
+        for attempt in range(max_retries + 1):
+            try:
+                return func()
+            except Exception as e:
+                if attempt == max_retries:
+                    logger.error(f"{operation} failed after {max_retries + 1} attempts: {e}")
+                    raise
+                else:
+                    delay = retry_delay * (2 ** attempt)
+                    logger.warning(f"{operation} failed (attempt {attempt + 1}/{max_retries + 1}): {e}. Retrying in {delay}s...")
+                    time.sleep(delay)
     
     def batch_process(
         self,

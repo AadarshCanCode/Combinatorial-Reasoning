@@ -68,6 +68,16 @@ class SentenceBERTFilter(BaseSemanticFilter):
         """
         self.model_name = model_name
         self.config = config or {}
+        
+        # Load configuration parameters
+        self.similarity_threshold = self.config.get('similarity_threshold', 0.8)
+        self.quality_threshold = self.config.get('quality_threshold', 0.3)
+        self.min_length = self.config.get('min_length', 5)
+        self.max_length = self.config.get('max_length', 1000)
+        self.use_clustering = self.config.get('use_clustering', True)
+        self.clustering_eps = self.config.get('clustering_eps', 0.3)
+        self.clustering_min_samples = self.config.get('clustering_min_samples', 2)
+        
         self.embedding_model = SentenceTransformer(model_name)
         
         # Quality assessment patterns
@@ -100,16 +110,23 @@ class SentenceBERTFilter(BaseSemanticFilter):
     def filter_reasons(
         self,
         reasoning_steps: List['ReasoningStep'],
-        similarity_threshold: float = 0.8,
-        quality_threshold: float = 0.3,
+        similarity_threshold: Optional[float] = None,
+        quality_threshold: Optional[float] = None,
         **kwargs
     ) -> List[FilteredReasoningStep]:
         """Filter reasoning steps using semantic similarity and quality assessment."""
         if not reasoning_steps:
             return []
         
+        # Use config values if not provided
+        similarity_threshold = similarity_threshold or self.similarity_threshold
+        quality_threshold = quality_threshold or self.quality_threshold
+        
+        # Step 1: Length filtering
+        length_filtered = self._filter_by_length(reasoning_steps)
+        
         # Extract step contents
-        step_contents = [step.content for step in reasoning_steps]
+        step_contents = [step.content for step in length_filtered]
         
         # Generate embeddings
         embeddings = self.embedding_model.encode(step_contents)
@@ -155,6 +172,15 @@ class SentenceBERTFilter(BaseSemanticFilter):
             processed_indices.add(i)
         
         return filtered_steps
+    
+    def _filter_by_length(self, reasoning_steps: List['ReasoningStep']) -> List['ReasoningStep']:
+        """Filter reasoning steps by length."""
+        filtered = []
+        for step in reasoning_steps:
+            word_count = len(step.content.split())
+            if self.min_length <= word_count <= self.max_length:
+                filtered.append(step)
+        return filtered
     
     def _assess_quality(self, step_contents: List[str]) -> List[float]:
         """Assess quality of reasoning steps."""

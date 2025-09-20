@@ -8,6 +8,7 @@ This script tests the Gradio demo functionality without launching the web interf
 import os
 import sys
 from pathlib import Path
+from unittest.mock import patch, Mock
 
 # Add the current directory to the path
 sys.path.insert(0, str(Path(__file__).parent))
@@ -139,6 +140,97 @@ def test_interface_creation():
         print(f"❌ Failed to create interface: {e}")
         return False
 
+def test_demo_processing():
+    """Test demo query processing functionality."""
+    print("\nTesting demo query processing...")
+    
+    try:
+        from gradio_demo import CRLLMGradioDemo
+        demo = CRLLMGradioDemo()
+        
+        # Test with mock pipeline
+        with patch.object(demo, 'pipeline') as mock_pipeline:
+            mock_result = Mock()
+            mock_result.final_answer = "Test answer"
+            mock_result.confidence = 0.8
+            mock_result.reasoning_chain = ["Step 1", "Step 2"]
+            mock_result.metadata = {
+                'domain': 'test',
+                'used_retrieval': False,
+                'used_verification': False
+            }
+            mock_pipeline.process_query.return_value = mock_result
+            
+            result = demo.process_query(
+                query="Test query",
+                domain="general",
+                use_retrieval=False,
+                use_verification=False
+            )
+            
+            assert len(result) == 5  # Should return 5 values
+            assert result[0] == "Test answer"  # Final answer
+            assert "Step 1" in result[1]  # Reasoning chain
+            assert "0.80" in result[2]  # Metadata with confidence
+            print("✅ Query processing works correctly")
+            return True
+            
+    except Exception as e:
+        print(f"❌ Failed to test query processing: {e}")
+        return False
+
+def test_demo_error_handling():
+    """Test demo error handling."""
+    print("\nTesting demo error handling...")
+    
+    try:
+        from gradio_demo import CRLLMGradioDemo
+        demo = CRLLMGradioDemo()
+        
+        # Test with pipeline that raises exception
+        with patch.object(demo, 'pipeline') as mock_pipeline:
+            mock_pipeline.process_query.side_effect = Exception("Test error")
+            
+            result = demo.process_query(
+                query="Test query",
+                domain="general",
+                use_retrieval=False,
+                use_verification=False
+            )
+            
+            assert len(result) == 5
+            assert "Error processing query" in result[0]
+            assert result[4].startswith("❌")  # Error status
+            print("✅ Error handling works correctly")
+            return True
+            
+    except Exception as e:
+        print(f"❌ Failed to test error handling: {e}")
+        return False
+
+def test_demo_edge_cases():
+    """Test demo with edge cases."""
+    print("\nTesting demo edge cases...")
+    
+    try:
+        from gradio_demo import CRLLMGradioDemo
+        demo = CRLLMGradioDemo()
+        
+        # Test empty query
+        result = demo.process_query("", "general", False, False)
+        assert "Please enter a query" in result[0]
+        
+        # Test whitespace-only query
+        result = demo.process_query("   ", "general", False, False)
+        assert "Please enter a query" in result[0]
+        
+        print("✅ Edge cases handled correctly")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Failed to test edge cases: {e}")
+        return False
+
 def main():
     """Run all tests."""
     print("🧪 CRLLM Gradio Demo Test Suite")
@@ -150,7 +242,10 @@ def main():
         test_pipeline_creation,
         test_example_queries,
         test_history_functionality,
-        test_interface_creation
+        test_interface_creation,
+        test_demo_processing,
+        test_demo_error_handling,
+        test_demo_edge_cases
     ]
     
     passed = 0

@@ -3,8 +3,11 @@ Tests for CRLLM core functionality.
 """
 
 import pytest
-from unittest.mock import Mock, patch
-from crllm.core import CRLLMPipeline, ReasoningResult
+import os
+import tempfile
+import json
+from unittest.mock import Mock, patch, MagicMock
+from crllm.core import CRLLMPipeline, ReasoningResult, load_config, _validate_config
 from crllm.modules import (
     TaskAgnosticInterface,
     ReasonSampler,
@@ -127,6 +130,71 @@ class TestCRLLMPipeline:
             assert mock_process.call_count == 3
 
 
+class TestConfigLoading:
+    """Test configuration loading functionality."""
+    
+    def test_load_config_default(self):
+        """Test loading default configuration."""
+        config = load_config()
+        assert 'use_retrieval' in config
+        assert 'use_verification' in config
+        assert isinstance(config['use_retrieval'], bool)
+        assert isinstance(config['use_verification'], bool)
+    
+    def test_load_config_from_file(self):
+        """Test loading configuration from file."""
+        test_config = {
+            "use_retrieval": True,
+            "use_verification": True,
+            "reason_sampler": {"model": "gpt-4"}
+        }
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            json.dump(test_config, f)
+            config_path = f.name
+        
+        try:
+            config = load_config(config_path)
+            assert config['use_retrieval'] is True
+            assert config['use_verification'] is True
+            assert config['reason_sampler']['model'] == "gpt-4"
+        finally:
+            os.unlink(config_path)
+    
+    def test_load_config_with_env_vars(self):
+        """Test loading configuration with environment variables."""
+        with patch.dict(os.environ, {
+            'OPENAI_API_KEY': 'test-key',
+            'CRLLM_USE_RETRIEVAL': 'true',
+            'CRLLM_MODEL': 'gpt-4'
+        }):
+            config = load_config()
+            assert config['reason_sampler']['api_key'] == 'test-key'
+            assert config['use_retrieval'] is True
+            assert config['reason_sampler']['model'] == 'gpt-4'
+    
+    def test_validate_config_valid(self):
+        """Test configuration validation with valid config."""
+        valid_config = {
+            "use_retrieval": True,
+            "use_verification": False,
+            "reason_sampler": {"model": "gpt-3.5-turbo", "num_samples": 5},
+            "semantic_filter": {"similarity_threshold": 0.8}
+        }
+        # Should not raise any exception
+        _validate_config(valid_config)
+    
+    def test_validate_config_invalid(self):
+        """Test configuration validation with invalid config."""
+        invalid_config = {
+            "use_retrieval": "not_a_boolean",
+            "reason_sampler": {"num_samples": 50}  # Too many samples
+        }
+        
+        with pytest.raises(ValueError):
+            _validate_config(invalid_config)
+
+
 class TestReasoningResult:
     """Test cases for ReasoningResult."""
     
@@ -145,6 +213,121 @@ class TestReasoningResult:
         assert result.final_answer == "test answer"
         assert result.confidence == 0.8
         assert result.metadata == {"key": "value"}
+    
+    def test_reasoning_result_edge_cases(self):
+        """Test ReasoningResult with edge cases."""
+        # Empty reasoning chain
+        result = ReasoningResult(
+            query="",
+            reasoning_chain=[],
+            final_answer="",
+            confidence=0.0,
+            metadata={}
+        )
+        
+        assert result.query == ""
+        assert result.reasoning_chain == []
+        assert result.final_answer == ""
+        assert result.confidence == 0.0
+        assert result.metadata == {}
+        
+        # High confidence
+        result = ReasoningResult(
+            query="test",
+            reasoning_chain=["step"],
+            final_answer="answer",
+            confidence=1.0,
+            metadata={"domain": "test"}
+        )
+        
+        assert result.confidence == 1.0
+
+
+class TestPipelineErrorHandling:
+    """Test error handling in the pipeline."""
+    
+    def test_process_query_with_llm_error(self):
+        """Test query processing when LLM calls fail."""
+        pipeline = CRLLMPipeline()
+        
+        # Mock the reason sampler to raise an exception
+        with patch.object(pipeline.reason_sampler, 'sample_reasons') as mock_sampler:
+            mock_sampler.side_effect = Exception("LLM API Error")
+            
+            result = pipeline.process_query("test query")
+            
+            assert isinstance(result, ReasoningResult)
+            assert "Error processing query" in result.final_answer
+            assert result.confidence == 0.0
+            assert 'error' in result.metadata
+    
+    def test_process_query_with_retrieval_error(self):
+        """Test query processing when retrieval fails."""
+        pipeline = CRLLMPipeline(use_retrieval=True)
+        
+        # Mock retrieval to fail
+        with patch.object(pipeline.retrieval_module, 'retrieve') as mock_retrieve:
+            mock_retrieve.side_effect = Exception("Retrieval Error")
+            
+            result = pipeline.process_query("test query", use_retrieval=True)
+            
+            # Should still process without retrieval
+            assert isinstance(result, ReasoningResult)
+            assert result.metadata['used_retrieval'] is False
+    
+    def test_process_query_with_verification_error(self):
+        """Test query processing when verification fails."""
+        pipeline = CRLLMPipeline(use_verification=True)
+        
+        # Mock verification to fail
+        with patch.object(pipeline.reason_verifier, 'verify_reasons') as mock_verify:
+            mock_verify.side_effect = Exception("Verification Error")
+            
+            result = pipeline.process_query("test query", use_verification=True)
+            
+            # Should still process without verification
+            assert isinstance(result, ReasoningResult)
+            assert result.metadata['used_verification'] is False
+
+
+class TestPipelineRetryMechanism:
+    """Test retry mechanism in the pipeline."""
+    
+    def test_retry_llm_call_success(self):
+        """Test LLM retry mechanism on success."""
+        pipeline = CRLLMPipeline()
+        
+        def mock_func():
+            return "success"
+        
+        result = pipeline._retry_llm_call(mock_func, max_retries=3, retry_delay=0.1, operation="test")
+        assert result == "success"
+    
+    def test_retry_llm_call_failure(self):
+        """Test LLM retry mechanism on failure."""
+        pipeline = CRLLMPipeline()
+        
+        def mock_func():
+            raise Exception("Always fails")
+        
+        with pytest.raises(Exception, match="Always fails"):
+            pipeline._retry_llm_call(mock_func, max_retries=2, retry_delay=0.1, operation="test")
+    
+    def test_retry_llm_call_partial_failure(self):
+        """Test LLM retry mechanism with partial failure."""
+        pipeline = CRLLMPipeline()
+        
+        call_count = 0
+        def mock_func():
+            nonlocal call_count
+            call_count += 1
+            if call_count < 3:
+                raise Exception("Fails first two times")
+            return "success"
+        
+        result = pipeline._retry_llm_call(mock_func, max_retries=3, retry_delay=0.1, operation="test")
+        assert result == "success"
+        assert call_count == 3
 
 
 if __name__ == "__main__":
