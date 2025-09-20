@@ -6,7 +6,7 @@
     "complexity_assessment": true
   },
   "retrieval": {
-    "collection_name": "crllm_knowledge",
+  "collection_name": "crqubo_knowledge",
     "embedding_model": "all-MiniLM-L6-v2",
     "top_k": 5,
     "min_relevance": 0.3

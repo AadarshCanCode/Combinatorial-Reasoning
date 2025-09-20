@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-CRLLM Gradio Demo
+CRQUBO Gradio Demo
 
-Interactive web interface for the CRLLM framework using Gradio.
+Interactive web interface for the CRQUBO framework using Gradio.
 This demo allows users to test different reasoning tasks and configurations.
 """
 
@@ -19,9 +19,8 @@ import json
 
 # Add the current directory to the path
 sys.path.insert(0, str(Path(__file__).parent))
-
-from crllm import CRLLMPipeline
-from crllm.modules import (
+from crqubo import CRLLMPipeline
+from crqubo.modules import (
     TaskAgnosticInterface,
     RetrievalModule,
     ReasonSampler,
@@ -29,12 +28,12 @@ from crllm.modules import (
     CombinatorialOptimizer,
     ReasonOrderer,
     FinalInference,
-    ReasonVerifier
+    ReasonVerifier,
 )
 
 
-class CRLLMGradioDemo:
-    """Gradio demo class for CRLLM framework."""
+class CRQUBOGradioDemo:
+    """Gradio demo class for CRQUBO framework."""
     
     def __init__(self):
         """Initialize the demo."""
@@ -66,7 +65,7 @@ class CRLLMGradioDemo:
         use_verification: bool,
         show_reasoning: bool = True
     ) -> Tuple[str, str, str, str, str]:
-        """Process a query through the CRLLM pipeline."""
+        """Process a query through the CRQUBO pipeline."""
         if not query.strip():
             return "Please enter a query.", "", "", "", ""
         
@@ -171,10 +170,10 @@ Current Configuration:
             return None
         
         df = pd.DataFrame(self.history)
-        
+
         fig, axes = plt.subplots(2, 2, figsize=(12, 8))
-        fig.suptitle('CRLLM Performance Analysis', fontsize=16)
-        
+        fig.suptitle('CRQUBO Performance Analysis', fontsize=16)
+
         # Processing time by domain
         domain_times = df.groupby('domain')['processing_time'].mean()
         axes[0, 0].bar(domain_times.index, domain_times.values, color='skyblue')
@@ -203,8 +202,6 @@ Current Configuration:
         axes[1, 1].set_ylabel('Steps')
         axes[1, 1].tick_params(axis='x', rotation=45)
         
-        plt.tight_layout()
-        
         # Save plot to temporary file
         plot_path = "temp_performance_plot.png"
         plt.savefig(plot_path, dpi=150, bbox_inches='tight')
@@ -223,7 +220,7 @@ Current Configuration:
             return "No history to export."
         
         timestamp = time.strftime("%Y%m%d_%H%M%S")
-        filename = f"crllm_history_{timestamp}.json"
+        filename = f"crqubo_history_{timestamp}.json"
         
         with open(filename, 'w') as f:
             json.dump(self.history, f, indent=2, default=str)
@@ -232,200 +229,55 @@ Current Configuration:
     
     def create_interface(self) -> gr.Blocks:
         """Create the Gradio interface."""
-        with gr.Blocks(
-            title="CRLLM Demo",
-            theme=gr.themes.Soft(),
-            css="""
-            .main-container { max-width: 1200px; margin: 0 auto; }
-            .header { text-align: center; margin-bottom: 2rem; }
-            .section { margin: 1rem 0; }
-            """
-        ) as interface:
-            
+        # Build a simplified, valid interface for testing purposes
+        with gr.Blocks(title="CRQUBO Demo", theme=gr.themes.Soft()) as interface:
             gr.Markdown("""
-            # 🚀 CRLLM: Combinatorial Reasoning with Large Language Models
-            
-            Interactive demo of the CRLLM framework for advanced reasoning tasks across multiple domains.
+            # 🚀 CRQUBO: Combinatorial Reasoning with Large Language Models
+
+            Interactive demo of the CRQUBO framework for advanced reasoning tasks across multiple domains.
             """)
-            
+
             with gr.Row():
                 with gr.Column(scale=2):
-                    # Query Input Section
-                    with gr.Group():
-                        gr.Markdown("### 📝 Query Input")
-                        
-                        query_input = gr.Textbox(
-                            label="Enter your query",
-                            placeholder="e.g., Why does smoking cause lung cancer?",
-                            lines=3
-                        )
-                        
-                        with gr.Row():
-                            domain_dropdown = gr.Dropdown(
-                                choices=[
-                                    ("Auto-detect", "auto"),
-                                    ("Causal", "causal"),
-                                    ("Logical", "logical"),
-                                    ("Arithmetic", "arithmetic"),
-                                    ("General", "general")
-                                ],
-                                value="auto",
-                                label="Reasoning Domain"
-                            )
-                            
-                            with gr.Column():
-                                retrieval_checkbox = gr.Checkbox(
-                                    label="Use Knowledge Retrieval (RAG)",
-                                    value=False
-                                )
-                                verification_checkbox = gr.Checkbox(
-                                    label="Use Reasoning Verification",
-                                    value=False
-                                )
-                        
-                        with gr.Row():
-                            process_btn = gr.Button("🚀 Process Query", variant="primary")
-                            clear_btn = gr.Button("🗑️ Clear", variant="secondary")
-                
+                    query_input = gr.Textbox(label="Enter your query", placeholder="e.g., Why does smoking cause lung cancer?", lines=3)
+                    domain_dropdown = gr.Dropdown(choices=[("Auto-detect", "auto"), ("Causal", "causal"), ("Logical", "logical"), ("Arithmetic", "arithmetic"), ("General", "general")], value="auto", label="Reasoning Domain")
+                    retrieval_checkbox = gr.Checkbox(label="Use Knowledge Retrieval (RAG)", value=False)
+                    verification_checkbox = gr.Checkbox(label="Use Reasoning Verification", value=False)
+                    process_btn = gr.Button("🚀 Process Query", variant="primary")
+                    clear_btn = gr.Button("🗑️ Clear", variant="secondary")
+
                 with gr.Column(scale=1):
-                    # Configuration Section
-                    with gr.Group():
-                        gr.Markdown("### ⚙️ Configuration")
-                        
-                        config_status = gr.Textbox(
-                            label="Pipeline Status",
-                            value="✅ Pipeline ready",
-                            interactive=False
-                        )
-                        
-                        with gr.Row():
-                            update_config_btn = gr.Button("Update Pipeline", size="sm")
-                            reset_config_btn = gr.Button("Reset to Default", size="sm")
-            
-            # Results Section
+                    config_status = gr.Textbox(label="Pipeline Status", value="✅ Pipeline ready", interactive=False)
+                    update_config_btn = gr.Button("Update Pipeline")
+                    reset_config_btn = gr.Button("Reset to Default")
+
             with gr.Group():
-                gr.Markdown("### 📊 Results")
-                
-                with gr.Row():
-                    with gr.Column():
-                        answer_output = gr.Textbox(
-                            label="Final Answer",
-                            lines=4,
-                            interactive=False
-                        )
-                        
-                        reasoning_output = gr.Textbox(
-                            label="Reasoning Chain",
-                            lines=6,
-                            interactive=False
-                        )
-                    
-                    with gr.Column():
-                        metadata_output = gr.Textbox(
-                            label="Metadata",
-                            lines=4,
-                            interactive=False
-                        )
-                        
-                        config_output = gr.Textbox(
-                            label="Configuration Info",
-                            lines=4,
-                            interactive=False
-                        )
-                
-                status_output = gr.Textbox(
-                    label="Status",
-                    interactive=False
-                )
-            
-            # Examples Section
-            with gr.Group():
-                gr.Markdown("### 💡 Example Queries")
-                
-                examples = gr.Examples(
-                    examples=self.get_example_queries(),
-                    inputs=[query_input, domain_dropdown, retrieval_checkbox, verification_checkbox],
-                    label="Click to load example"
-                )
-            
-            # History and Analytics Section
-            with gr.Group():
-                gr.Markdown("### 📈 History & Analytics")
-                
-                with gr.Row():
-                    with gr.Column():
-                        history_table = gr.Dataframe(
-                            label="Query History",
-                            interactive=False,
-                            wrap=True
-                        )
-                        
-                        with gr.Row():
-                            refresh_history_btn = gr.Button("🔄 Refresh History")
-                            clear_history_btn = gr.Button("🗑️ Clear History")
-                            export_history_btn = gr.Button("📤 Export History")
-                    
-                    with gr.Column():
-                        performance_plot = gr.Image(
-                            label="Performance Analysis",
-                            visible=False
-                        )
-                        
-                        plot_btn = gr.Button("📊 Generate Performance Plot")
-            
-            # Event Handlers
-            process_btn.click(
-                fn=self.process_query,
-                inputs=[query_input, domain_dropdown, retrieval_checkbox, verification_checkbox],
-                outputs=[answer_output, reasoning_output, metadata_output, config_output, status_output]
-            )
-            
-            clear_btn.click(
-                fn=lambda: ("", "", "", "", "", "✅ Cleared successfully!"),
-                outputs=[query_input, answer_output, reasoning_output, metadata_output, config_output, status_output]
-            )
-            
-            update_config_btn.click(
-                fn=self.update_pipeline,
-                inputs=gr.State({}),
-                outputs=config_status
-            )
-            
-            reset_config_btn.click(
-                fn=lambda: self.update_pipeline({}),
-                outputs=config_status
-            )
-            
-            refresh_history_btn.click(
-                fn=self.get_history_dataframe,
-                outputs=history_table
-            )
-            
-            clear_history_btn.click(
-                fn=self.clear_history,
-                outputs=[query_input, answer_output, reasoning_output, metadata_output, config_output, status_output]
-            )
-            
-            export_history_btn.click(
-                fn=self.export_history,
-                outputs=status_output
-            )
-            
-            plot_btn.click(
-                fn=self.create_performance_plot,
-                outputs=performance_plot
-            ).then(
-                fn=lambda x: gr.update(visible=x is not None),
-                inputs=performance_plot,
-                outputs=performance_plot
-            )
-            
-            # Auto-refresh history when processing
-            process_btn.click(
-                fn=self.get_history_dataframe,
-                outputs=history_table
-            )
-        
+                answer_output = gr.Textbox(label="Final Answer", lines=4, interactive=False)
+                reasoning_output = gr.Textbox(label="Reasoning Chain", lines=6, interactive=False)
+                metadata_output = gr.Textbox(label="Metadata", lines=4, interactive=False)
+                config_output = gr.Textbox(label="Configuration Info", lines=4, interactive=False)
+                status_output = gr.Textbox(label="Status", interactive=False)
+
+            examples = gr.Examples(examples=self.get_example_queries(), inputs=[query_input, domain_dropdown, retrieval_checkbox, verification_checkbox], label="Click to load example")
+
+            history_table = gr.Dataframe(label="Query History", interactive=False, wrap=True)
+            refresh_history_btn = gr.Button("🔄 Refresh History")
+            clear_history_btn = gr.Button("🗑️ Clear History")
+            export_history_btn = gr.Button("📤 Export History")
+
+            performance_plot = gr.Image(label="Performance Analysis", visible=False)
+            plot_btn = gr.Button("📊 Generate Performance Plot")
+
+            # Wire simple event handlers
+            process_btn.click(fn=self.process_query, inputs=[query_input, domain_dropdown, retrieval_checkbox, verification_checkbox], outputs=[answer_output, reasoning_output, metadata_output, config_output, status_output])
+            clear_btn.click(fn=lambda: ("", "", "", "", "", "✅ Cleared successfully!"), outputs=[query_input, answer_output, reasoning_output, metadata_output, config_output, status_output])
+            update_config_btn.click(fn=self.update_pipeline, inputs=gr.State({}), outputs=config_status)
+            reset_config_btn.click(fn=lambda: self.update_pipeline({}), outputs=config_status)
+            refresh_history_btn.click(fn=self.get_history_dataframe, outputs=history_table)
+            clear_history_btn.click(fn=self.clear_history, outputs=[query_input, answer_output, reasoning_output, metadata_output, config_output, status_output])
+            export_history_btn.click(fn=self.export_history, outputs=status_output)
+            plot_btn.click(fn=self.create_performance_plot, outputs=performance_plot)
+
         return interface
 
 
@@ -439,7 +291,7 @@ def main():
         print("   Set your API key: export OPENAI_API_KEY='your-key-here'")
     
     # Create demo instance
-    demo = CRLLMGradioDemo()
+    demo = CRQUBOGradioDemo()
     
     # Create and launch interface
     interface = demo.create_interface()

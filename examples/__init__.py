@@ -1,6 +1,6 @@
 """
-CRLLM Examples
+CRQUBO Examples
 
 This package contains example scripts and notebooks demonstrating
-the CRLLM framework capabilities.
+the CRQUBO framework capabilities.
 """

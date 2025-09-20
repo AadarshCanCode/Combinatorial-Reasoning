@@ -7,14 +7,14 @@ with open("requirements.txt", "r", encoding="utf-8") as fh:
     requirements = [line.strip() for line in fh if line.strip() and not line.startswith("#")]
 
 setup(
-    name="crllm",
+    name="crqubo",
     version="0.1.0",
-    author="CRLLM Team",
-    author_email="contact@crllm.com",
+    author="CRQUBO Team",
+    author_email="contact@crqubo.org",
     description="A modular reasoning framework for combinatorial reasoning with Large Language Models",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/crllm/crllm",
+    url="https://github.com/Combinatorial-Reasoning/crqubo",
     packages=find_packages(),
     classifiers=[
         "Development Status :: 3 - Alpha",

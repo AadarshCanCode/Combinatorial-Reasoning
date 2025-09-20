@@ -1,9 +1,4 @@
-"""
-CRLLM: Combinatorial Reasoning with Large Language Models
-
-A modular reasoning framework that generalizes the Combinatorial Reasoning (CR) pipeline
-across diverse reasoning tasks using Large Language Models.
-"""
+"""crqubo package: public exports for the CRQUBO framework."""
 
 from .core import CRLLMPipeline
 from .modules import (
@@ -18,12 +13,12 @@ from .modules import (
 )
 
 __version__ = "0.1.0"
-__author__ = "CRLLM Team"
+__author__ = "CRQUBO Team"
 
 __all__ = [
     "CRLLMPipeline",
     "TaskAgnosticInterface",
-    "RetrievalModule", 
+    "RetrievalModule",
     "ReasonSampler",
     "SemanticFilter",
     "CombinatorialOptimizer",

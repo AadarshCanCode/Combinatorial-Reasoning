@@ -1,0 +1,11 @@
+Package: crqubo
+Version: 0.1.0
+Description: CRQUBO - Combinatorial Reasoning library (public subtree)
+
+Contact: contact@crqubo.org
+
+This subtree contains a minimal set of files suitable for publishing a small
+public package: a README, minimal usage guide, optional extras list, and a
+copy of a simple runnable example. The full project contains additional
+modules, demos, and experimental backends.
+Repository: https://github.com/Combinatorial-Reasoning/crqubo

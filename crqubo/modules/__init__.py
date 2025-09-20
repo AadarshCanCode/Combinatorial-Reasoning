@@ -1,7 +1,7 @@
 """
-CRLLM Modules
+CRQUBO Modules
 
-This package contains all the modular components of the CRLLM framework.
+This package contains all the modular components of the CRQUBO framework.
 Each module is designed to be independently configurable and replaceable.
 """
 

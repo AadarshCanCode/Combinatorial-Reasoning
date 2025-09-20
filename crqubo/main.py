@@ -1,7 +1,7 @@
 """
-CRLLM Main Entry Point
+CRQUBO Main Entry Point
 
-This module provides the main entry point for the CRLLM framework,
+This module provides the main entry point for the CRQUBO framework,
 including command-line interface and example usage.
 """
 
@@ -25,7 +25,7 @@ from .modules import (
 
 
 def create_default_pipeline(config: Optional[Dict[str, Any]] = None) -> CRLLMPipeline:
-    """Create a default CRLLM pipeline with all modules."""
+    """Create a default CRQUBO pipeline with all modules."""
     config = config or {}
     
     # Create modules with default configurations
@@ -83,12 +83,12 @@ def save_result(result: Dict[str, Any], output_path: str) -> None:
 def main():
     """Main entry point for command-line interface."""
     parser = argparse.ArgumentParser(
-        description="CRLLM: Combinatorial Reasoning with Large Language Models"
+        description="CRQUBO: Combinatorial Reasoning with Large Language Models"
     )
     
     parser.add_argument(
         "query",
-        help="Query to process through the CRLLM pipeline"
+    help="Query to process through the CRQUBO pipeline"
     )
     
     parser.add_argument(
@@ -145,7 +145,7 @@ def main():
         pipeline = create_default_pipeline(config)
         
         if args.verbose:
-            print("CRLLM Pipeline created successfully")
+            print("CRQUBO Pipeline created successfully")
             print(f"Pipeline info: {pipeline.get_pipeline_info()}")
         
         # Process query
@@ -158,7 +158,7 @@ def main():
         
         # Display result
         print("\n" + "="*50)
-        print("CRLLM RESULT")
+        print("CRQUBO RESULT")
         print("="*50)
         print(f"Query: {result.query}")
         print(f"Domain: {result.metadata.get('domain', 'unknown')}")
@@ -190,8 +190,8 @@ def main():
 
 
 def run_example():
-    """Run example usage of CRLLM."""
-    print("CRLLM Example Usage")
+    """Run example usage of CRQUBO."""
+    print("CRQUBO Example Usage")
     print("="*50)
     
     # Example queries for different domains

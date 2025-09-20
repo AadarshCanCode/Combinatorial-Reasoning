@@ -1,5 +1,5 @@
 """
-CRLLM Tests
+CRQUBO Tests
 
-This package contains unit tests for the CRLLM framework.
+This package contains unit tests for the CRQUBO framework.
 """

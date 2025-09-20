@@ -1,4 +1,10 @@
-# CRLLM Gradio Demo
+# CRQUBO Gradio Demo
+
+Interactive web interface for the CRQUBO framework using Gradio. This demo provides a user-friendly way to test the reasoning capabilities across different domains.
+# 🚀 CRQUBO: Combinatorial Reasoning with Large Language Models
+
+### Prerequisites
+# CRQUBO Gradio Demo
 
 Interactive web interface for the CRLLM framework using Gradio. This demo provides a user-friendly way to test the reasoning capabilities across different domains.
 
@@ -131,7 +137,7 @@ The demo includes built-in analytics:
 ## 🔧 Customization
 
 ### Adding New Examples
-Edit the `get_example_queries()` method in `CRLLMGradioDemo` class:
+Edit the `get_example_queries()` method in `CRQUBOGradioDemo` class:
 
 ```python
 def get_example_queries(self) -> List[List[str]]:
@@ -149,7 +155,7 @@ The interface is built using Gradio blocks. You can customize:
 - Visual themes
 
 ### Adding New Features
-Extend the `CRLLMGradioDemo` class with new methods:
+Extend the `CRQUBOGradioDemo` class with new methods:
 - Custom processing functions
 - Additional visualizations
 - Export formats
@@ -159,10 +165,10 @@ Extend the `CRLLMGradioDemo` class with new methods:
 
 ### Common Issues
 
-1. **API Key Not Set**
+1. **API Key / Backend Not Set**
    ```
-   Error: OpenAI API key not found
-   Solution: Set OPENAI_API_KEY environment variable
+   Error: No backend configured for LLM or inference
+   Solution: Either set an environment variable for the provider you intend to use (e.g. `OPENAI_API_KEY`), or update `config.json` to point to a different backend and adapter implementation.
    ```
 
 2. **Missing Dependencies**

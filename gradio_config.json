@@ -1,7 +1,7 @@
 {
   "gradio_demo": {
-    "title": "CRLLM: Combinatorial Reasoning with Large Language Models",
-    "description": "Interactive demo of the CRLLM framework for advanced reasoning tasks across multiple domains.",
+  "title": "CRQUBO: Combinatorial Reasoning with Large Language Models",
+  "description": "Interactive demo of the CRQUBO framework for advanced reasoning tasks across multiple domains.",
     "theme": "soft",
     "server_name": "0.0.0.0",
     "server_port": 7860,

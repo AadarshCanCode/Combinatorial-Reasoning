@@ -1,4 +1,119 @@
-# CRLLM: Combinatorial Reasoning with Large Language Models
+### Interactive Web Demo (Recommended)
+
+The easiest way to try CRQUBO is through our interactive Gradio web interface.
+
+Note: the framework is modular — it supports multiple LLM and optimization backends. OpenAI is a common default, but you can configure other providers (local models, Hugging Face endpoints, Anthropic, or on-prem inference servers) via configuration or by implementing the simple backend adapter discussed below.
+
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# (Optional) If you plan to use the OpenAI backend set your key; otherwise configure your preferred backend.
+# Linux/macOS
+export OPENAI_API_KEY="your-openai-api-key-here"
+# Windows PowerShell
+setx OPENAI_API_KEY "your-openai-api-key-here"
+
+# Launch the web demo
+python run_gradio_demo.py
+```
+### Run Examples
+
+```bash
+# Run built-in examples
+python -m crqubo.main
+
+# Launch interactive web demo
+python run_gradio_demo.py
+
+# Run Jupyter notebook examples
+jupyter notebook examples/crqubo_demo.ipynb
+```
+The CRQUBO framework consists of eight modular components:
+
+## 📚 Usage Examples
+
+### Interactive Web Demo
+
+The easiest way to explore CRQUBO is through our interactive Gradio web interface:
+
+```bash
+python run_gradio_demo.py
+```
+
+Features:
+- 🎯 **One-click examples** for different reasoning domains
+- ⚙️ **Real-time configuration** of pipeline settings
+- 📊 **Performance analytics** and visualizations
+- 📝 **Query history** with export functionality
+- 🔄 **Live processing** with step-by-step reasoning display
+
+### Causal Reasoning
+
+```python
+from crqubo import CRLLMPipeline
+
+pipeline = CRLLMPipeline()
+
+result = pipeline.process_query(
+    query="How does education affect income?",
+    domain="causal",
+    use_retrieval=True
+)
+
+print(result.final_answer)
+```
+### Causal Reasoning
+
+```python
+from crqubo import CRLLMPipeline
+
+pipeline = CRLLMPipeline()
+
+result = pipeline.process_query(
+    query="How does education affect income?",
+    domain="causal",
+    use_retrieval=True
+)
+
+print(result.final_answer)
+```
+```python
+from crqubo.modules import TaskAgnosticInterface
+
+interface = TaskAgnosticInterface()
+processed = interface.process_input("Why does X cause Y?", domain="causal")
+```
+```python
+from crqubo.modules import RetrievalModule
+
+retrieval = RetrievalModule()
+result = retrieval.retrieve("climate change causes", top_k=5)
+```
+```python
+from crqubo.modules import ReasonSampler
+
+sampler = ReasonSampler()
+steps = sampler.sample_reasons("What causes inflation?", domain="causal")
+```
+```python
+from crqubo.modules import SemanticFilter
+
+filter_module = SemanticFilter()
+filtered = filter_module.filter_reasons(reasoning_steps)
+```
+```python
+from crqubo.modules import CombinatorialOptimizer
+
+optimizer = CombinatorialOptimizer()
+selected = optimizer.optimize_selection(reasoning_steps, query)
+```
+```python
+from crqubo.modules import ReasonOrderer
+
+orderer = ReasonOrderer()
+```
+# CRQUBO: Combinatorial Reasoning with Large Language Models
 
 A modular reasoning framework that generalizes the Combinatorial Reasoning (CR) pipeline across diverse reasoning tasks using Large Language Models. The system combines zero-shot or few-shot LLM sampling, semantic deduplication, QUBO-based combinatorial selection, and optional knowledge retrieval (RAG) to construct optimal chains of reasoning for complex queries.
 
@@ -36,8 +151,19 @@ A modular reasoning framework that generalizes the Combinatorial Reasoning (CR) 
 
 ```bash
 # Clone the repository
-git clone https://github.com/crllm/crllm.git
-cd crllm
+git clone https://github.com/Combinatorial-Reasoning/crqubo.git
+cd crqubo
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Install the package
+pip install -e .
+```
+```bash
+# Clone the repository
+git clone https://github.com/AadarshCanCode/Combinatorial-Reasoning.git
+cd Combinatorial-Reasoning
 
 # Install dependencies
 pip install -r requirements.txt
@@ -56,7 +182,7 @@ pip install -r requirements.txt
 
 ### Interactive Web Demo (Recommended)
 
-The easiest way to try CRLLM is through our interactive Gradio web interface:
+The easiest way to try CRQUBO is through our interactive Gradio web interface:
 
 ```bash
 # Install dependencies
@@ -68,13 +194,20 @@ export OPENAI_API_KEY="your-openai-api-key-here"
 # Launch the web demo
 python run_gradio_demo.py
 ```
+```bash
+# Set your OpenAI API key (Windows PowerShell example)
+setx OPENAI_API_KEY "your-openai-api-key-here"
+
+# Launch the web demo
+python run_gradio_demo.py
+```
 
 The demo will open in your browser at `http://localhost:7860` with a user-friendly interface for testing different reasoning tasks.
 
 ### Basic Usage
 
 ```python
-from crllm import CRLLMPipeline
+from crqubo import CRLLMPipeline
 
 # Create a pipeline
 pipeline = CRLLMPipeline()
@@ -98,17 +231,33 @@ for i, step in enumerate(result.reasoning_chain, 1):
 
 ```bash
 # Basic usage
-python -m crllm.main "Why does smoking cause lung cancer?" --domain causal
+python -m crqubo.main "Why does smoking cause lung cancer?" --domain causal
 
 # With retrieval and verification
-python -m crllm.main "What are the causes of climate change?" \
+python -m crqubo.main "What are the causes of climate change?" \
     --domain causal \
     --use-retrieval \
     --use-verification \
     --output result.json
 
 # Using configuration file
-python -m crllm.main "Solve for x: 2x + 5 = 13" \
+python -m crqubo.main "Solve for x: 2x + 5 = 13" \
+    --config config.json \
+    --domain arithmetic
+```
+```bash
+# Basic usage
+python -m crqubo.main "Why does smoking cause lung cancer?" --domain causal
+
+# With retrieval and verification
+python -m crqubo.main "What are the causes of climate change?" \
+    --domain causal \
+    --use-retrieval \
+    --use-verification \
+    --output result.json
+
+# Using configuration file
+python -m crqubo.main "Solve for x: 2x + 5 = 13" \
     --config config.json \
     --domain arithmetic
 ```
@@ -117,7 +266,17 @@ python -m crllm.main "Solve for x: 2x + 5 = 13" \
 
 ```bash
 # Run built-in examples
-python -m crllm.main
+python -m crqubo.main
+
+# Launch interactive web demo
+python run_gradio_demo.py
+
+# Run Jupyter notebook examples
+jupyter notebook examples/crllm_demo.ipynb
+```
+```bash
+# Run built-in examples
+python -m crqubo.main
 
 # Launch interactive web demo
 python run_gradio_demo.py

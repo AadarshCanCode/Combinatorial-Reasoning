@@ -1,30 +1,30 @@
-# CRLLM Demo Guide
+# CRQUBO Demo Guide
 
-This guide provides comprehensive instructions for running and using the various CRLLM demos.
+This guide provides comprehensive instructions for running and using the various CRQUBO demos.
 
 ## 🚀 Quick Start
 
 ### 1. Interactive Web Demo (Recommended)
 
-The easiest way to explore CRLLM is through our interactive Gradio web interface:
+The easiest way to explore CRQUBO is through our interactive Gradio web interface.
+
+Note: CRQUBO supports multiple LLM and optimization backends. OpenAI is a common default, but you can configure other providers or local models by changing `config.json` or implementing a small backend adapter class; see the "Modular Backends" section further below.
 
 ```bash
 # Install dependencies
 pip install -r requirements.txt
 
-# Set your OpenAI API key
+# (Optional) Configure a backend. OpenAI is optional — if you want to use OpenAI, set your key as shown below.
+# Linux/macOS
 export OPENAI_API_KEY="your-openai-api-key-here"
+# Windows PowerShell (persistent)
+setx OPENAI_API_KEY "your-openai-api-key-here"
+
+# For other providers or local models, update `config.json` with an appropriate adapter and settings.
 
 # Launch the web demo
 python run_gradio_demo.py
 ```
-
-**Features:**
-- 🎯 One-click examples for different reasoning domains
-- ⚙️ Real-time configuration of pipeline settings
-- 📊 Performance analytics and visualizations
-- 📝 Query history with export functionality
-- 🔄 Live processing with step-by-step reasoning display
 
 ### 2. Command Line Interface
 
@@ -32,15 +32,15 @@ For quick testing and automation:
 
 ```bash
 # Basic usage
-python -m crllm.main "Why does smoking cause lung cancer?" --domain causal
+python -m crqubo.main "Why does smoking cause lung cancer?" --domain causal
 
 # With retrieval and verification
-python -m crllm.main "What are the causes of climate change?" \
-    --domain causal --use-retrieval --use-verification
+python -m crqubo.main "What are the causes of climate change?" \
+   --domain causal --use-retrieval --use-verification
 
 # Using configuration file
-python -m crllm.main "Solve for x: 2x + 5 = 13" \
-    --config config.json --domain arithmetic
+python -m crqubo.main "Solve for x: 2x + 5 = 13" \
+   --config config.json --domain arithmetic
 ```
 
 ### 3. Jupyter Notebook
@@ -49,7 +49,7 @@ For interactive exploration and experimentation:
 
 ```bash
 # Launch Jupyter notebook
-jupyter notebook examples/crllm_demo.ipynb
+jupyter notebook examples/crqubo_demo.ipynb
 ```
 
 ### 4. Simple Python Demo
@@ -75,7 +75,7 @@ python launch_demo.py --install --demo gradio
 # Install dependencies
 pip install -r requirements.txt
 
-# Set API key
+# (Optional) Set API key for OpenAI backend (or configure alternate backend in `config.json`)
 export OPENAI_API_KEY="your-openai-api-key-here"
 
 # Run demo
@@ -93,18 +93,18 @@ python test_gradio_demo.py
 
 # Launch demo
 python run_gradio_demo.py
+```bash
+# Basic usage
+python -m crqubo.main "Why does smoking cause lung cancer?" --domain causal
+
+# With retrieval and verification
+python -m crqubo.main "What are the causes of climate change?" \
+   --domain causal --use-retrieval --use-verification
+
+# Using configuration file
+python -m crqubo.main "Solve for x: 2x + 5 = 13" \
+   --config config.json --domain arithmetic
 ```
-
-## 🌐 Gradio Web Demo Features
-
-### Main Interface
-
-1. **Query Input Section**
-   - Text input for reasoning questions
-   - Domain selection (Auto-detect, Causal, Logical, Arithmetic, General)
-   - Options for Knowledge Retrieval (RAG) and Reasoning Verification
-   - Process and Clear buttons
-
 2. **Configuration Panel**
    - Pipeline status display
    - Update and reset configuration options
@@ -181,14 +181,14 @@ The demo includes built-in analytics:
    - Chain complexity metrics
    - Step quality indicators
 
-## 🔧 Troubleshooting
+### Troubleshooting
 
 ### Common Issues
 
-1. **API Key Not Set**
+1. **API Key / Backend Not Set**
    ```
-   Error: OpenAI API key not found
-   Solution: Set OPENAI_API_KEY environment variable
+   Error: No backend configured for LLM or inference
+   Solution: Either set an environment variable for the provider you intend to use (e.g. `OPENAI_API_KEY`) or update `config.json` to point to a different backend and adapter implementation.
    ```
 
 2. **Missing Dependencies**
@@ -250,7 +250,7 @@ Create a custom configuration file:
 Process multiple queries programmatically:
 
 ```python
-from crllm import CRLLMPipeline
+from crqubo import CRLLMPipeline
 
 pipeline = CRLLMPipeline()
 queries = [

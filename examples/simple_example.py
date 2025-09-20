@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Simple CRLLM Example
+Simple CRQUBO Example
 
-This script demonstrates basic usage of the CRLLM framework
+This script demonstrates basic usage of the CRQUBO framework
 with a simple causal reasoning example.
 """
 
@@ -10,19 +10,20 @@ import os
 import sys
 from pathlib import Path
 
-# Add the parent directory to the path so we can import crllm
+# Add the parent directory to the path so we can import crqubo
 sys.path.insert(0, str(Path(__file__).parent.parent))
-
-from crllm import CRLLMPipeline
+from crqubo import CRLLMPipeline
 
 
 def main():
-    """Run a simple CRLLM example."""
-    print("CRLLM Simple Example")
+    """Run a simple CRQUBO example."""
+    print("CRQUBO Simple Example")
     print("=" * 50)
     
-    # Set up API key (replace with your actual key)
-    os.environ['OPENAI_API_KEY'] = 'your-openai-api-key-here'
+    # By default this example uses whatever backend is configured in `config.json`.
+    # The project is backend-agnostic — OpenAI is optional. To use OpenAI set the
+    # environment variable `OPENAI_API_KEY`, or point `config.json` at a different
+    # provider (e.g., local/huggingface) and provide the corresponding adapter.
     
     # Create a basic pipeline
     pipeline = CRLLMPipeline()
@@ -55,7 +56,7 @@ def main():
         
     except Exception as e:
         print(f"Error: {e}")
-        print("Make sure to set your OpenAI API key!")
+        print("Tip: configure a backend in config.json or implement a small adapter class for your preferred provider.")
 
 
 if __name__ == "__main__":

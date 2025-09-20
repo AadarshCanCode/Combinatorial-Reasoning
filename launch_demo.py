@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-CRLLM Demo Launcher
+CRQUBO Demo Launcher
 
-Comprehensive launcher script that provides multiple ways to run the CRLLM demos.
+Comprehensive launcher script that provides multiple ways to run the CRQUBO demos.
 """
 
 import os
@@ -12,11 +12,11 @@ import argparse
 from pathlib import Path
 
 def print_banner():
-    """Print the CRLLM banner."""
+    """Print the CRQUBO banner."""
     print("""
     ╔══════════════════════════════════════════════════════════════╗
     ║                                                              ║
-    ║    🚀 CRLLM: Combinatorial Reasoning with Large Language     ║
+    ║    🚀 CRQUBO: Combinatorial Reasoning with Large Language    ║
     ║                    Models - Demo Launcher                    ║
     ║                                                              ║
     ╚══════════════════════════════════════════════════════════════╝
@@ -88,24 +88,39 @@ def run_gradio_demo(port=7860, share=False, debug=False):
     """Run the Gradio web demo."""
     print(f"🌐 Starting Gradio demo on port {port}...")
     try:
-        from gradio_demo import main as run_demo
-        # Modify the demo to use custom port
+        # Import the demo module
         import gradio_demo
-        original_launch = gradio_demo.CRLLMGradioDemo.create_interface
-        
-        def custom_launch(self):
-            interface = original_launch(self)
-            interface.launch(
-                server_name="0.0.0.0",
-                server_port=port,
-                share=share,
-                debug=debug,
-                show_error=True
-            )
-            return interface
-        
-        gradio_demo.CRLLMGradioDemo.create_interface = custom_launch
-        run_demo()
+
+        # If the demo exposes CRQUBOGradioDemo, patch its create_interface to use our port
+        if hasattr(gradio_demo, 'CRQUBOGradioDemo') and hasattr(gradio_demo.CRQUBOGradioDemo, 'create_interface'):
+            original_launch = gradio_demo.CRQUBOGradioDemo.create_interface
+
+            def custom_launch(self):
+                interface = original_launch(self)
+                interface.launch(
+                    server_name="0.0.0.0",
+                    server_port=port,
+                    share=share,
+                    debug=debug,
+                    show_error=True
+                )
+                return interface
+
+            gradio_demo.CRQUBOGradioDemo.create_interface = custom_launch
+
+        # Prefer a main() entrypoint if present
+        if hasattr(gradio_demo, 'main'):
+            gradio_demo.main()
+        else:
+            # Fallback: instantiate demo and launch interface
+            if hasattr(gradio_demo, 'CRQUBOGradioDemo'):
+                demo = gradio_demo.CRQUBOGradioDemo()
+                interface = demo.create_interface()
+                interface.launch(server_name="0.0.0.0", server_port=port, share=share, debug=debug)
+            else:
+                raise RuntimeError("No entrypoint found for Gradio demo in gradio_demo.py")
+
+        return True
     except Exception as e:
         print(f"❌ Failed to start Gradio demo: {e}")
         return False
@@ -114,7 +129,7 @@ def run_command_line_demo():
     """Run the command line demo."""
     print("💻 Starting command line demo...")
     try:
-        subprocess.run([sys.executable, '-m', 'crllm.main'], check=True)
+        subprocess.run([sys.executable, '-m', 'crqubo.main'], check=True)
         return True
     except subprocess.CalledProcessError as e:
         print(f"❌ Failed to start command line demo: {e}")
@@ -144,7 +159,8 @@ def run_tests():
     """Run the test suite."""
     print("🧪 Running test suite...")
     try:
-        subprocess.run([sys.executable, 'test_gradio_demo.py'], check=True)
+        # Run the test using pytest on the tests/ directory to ensure correct discovery
+        subprocess.run([sys.executable, '-m', 'pytest', 'tests/test_gradio_demo.py'], check=True)
         return True
     except subprocess.CalledProcessError as e:
         print(f"❌ Tests failed: {e}")
@@ -152,7 +168,7 @@ def run_tests():
 
 def main():
     """Main launcher function."""
-    parser = argparse.ArgumentParser(description="CRLLM Demo Launcher")
+    parser = argparse.ArgumentParser(description="CRQUBO Demo Launcher")
     parser.add_argument('--demo', choices=['gradio', 'cli', 'jupyter', 'simple', 'test'], 
                        default='gradio', help='Demo to run')
     parser.add_argument('--port', type=int, default=7860, help='Port for Gradio demo')

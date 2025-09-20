@@ -1,5 +1,5 @@
 """
-Core CRLLM Pipeline orchestrator that coordinates all modules.
+Core CRQUBO Pipeline orchestrator that coordinates all modules.
 """
 
 from typing import Dict, List, Any, Optional, Union
@@ -67,7 +67,7 @@ def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
             logger.info(f"Loaded configuration from {config_path}")
         except Exception as e:
             logger.warning(f"Failed to load config from {config_path}: {e}")
-    elif Path("config.json").exists():
+    elif os.getenv('CRQUBO_USE_PROJECT_CONFIG', '').lower() in ('true', '1', 'yes') and Path("config.json").exists():
         try:
             with open("config.json", 'r') as f:
                 file_config = json.load(f)
@@ -90,20 +90,20 @@ def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
         env_config.setdefault('reason_sampler', {})['hf_token'] = os.getenv('HUGGINGFACE_API_TOKEN')
     
     # Feature flags
-    if os.getenv('CRLLM_USE_RETRIEVAL', '').lower() in ('true', '1', 'yes'):
+    if os.getenv('CRQUBO_USE_RETRIEVAL', '').lower() in ('true', '1', 'yes'):
         env_config['use_retrieval'] = True
     
-    if os.getenv('CRLLM_USE_VERIFICATION', '').lower() in ('true', '1', 'yes'):
+    if os.getenv('CRQUBO_USE_VERIFICATION', '').lower() in ('true', '1', 'yes'):
         env_config['use_verification'] = True
     
     # Model configurations
-    if os.getenv('CRLLM_MODEL'):
-        env_config.setdefault('reason_sampler', {})['model'] = os.getenv('CRLLM_MODEL')
-        env_config.setdefault('final_inference', {})['model'] = os.getenv('CRLLM_MODEL')
+    if os.getenv('CRQUBO_MODEL'):
+        env_config.setdefault('reason_sampler', {})['model'] = os.getenv('CRQUBO_MODEL')
+        env_config.setdefault('final_inference', {})['model'] = os.getenv('CRQUBO_MODEL')
     
-    if os.getenv('CRLLM_EMBEDDING_MODEL'):
-        env_config.setdefault('semantic_filter', {})['model_name'] = os.getenv('CRLLM_EMBEDDING_MODEL')
-        env_config.setdefault('retrieval', {})['embedding_model'] = os.getenv('CRLLM_EMBEDDING_MODEL')
+    if os.getenv('CRQUBO_EMBEDDING_MODEL'):
+        env_config.setdefault('semantic_filter', {})['model_name'] = os.getenv('CRQUBO_EMBEDDING_MODEL')
+        env_config.setdefault('retrieval', {})['embedding_model'] = os.getenv('CRQUBO_EMBEDDING_MODEL')
     
     # Merge configurations (file config overrides defaults, env overrides file)
     config = default_config.copy()
@@ -179,9 +179,11 @@ class CRLLMPipeline:
         reason_verifier: Optional[ReasonVerifier] = None,
         config: Optional[Dict[str, Any]] = None,
         config_path: Optional[str] = None,
+        use_retrieval: Optional[bool] = None,
+        use_verification: Optional[bool] = None,
     ):
         """
-        Initialize the CRLLM pipeline with optional modules.
+        Initialize the CRQUBO pipeline with optional modules.
         
         Args:
             task_interface: Module for handling task-agnostic input
@@ -205,6 +207,12 @@ class CRLLMPipeline:
                 loaded_config.update(config)
                 config = loaded_config
         
+        # Allow explicit constructor flags to override configuration
+        if use_retrieval is not None:
+            config['use_retrieval'] = bool(use_retrieval)
+        if use_verification is not None:
+            config['use_verification'] = bool(use_verification)
+
         self.config = config
         
         # Initialize modules with configuration
@@ -223,7 +231,7 @@ class CRLLMPipeline:
         if config.get('use_verification', False):
             self.reason_verifier = reason_verifier or ReasonVerifier(config.get('reason_verifier', {}))
         
-        logger.info("CRLLM Pipeline initialized successfully")
+    logger.info("CRQUBO Pipeline initialized successfully")
         
     def process_query(
         self,
@@ -339,8 +347,12 @@ class CRLLMPipeline:
             processing_time = time.time() - start_time
             logger.info(f"Query processed successfully in {processing_time:.2f}s")
             
+            query_value = getattr(processed_query, 'normalized_query', None)
+            if query_value is None:
+                query_value = str(processed_query)
+
             return ReasoningResult(
-                query=str(processed_query),
+                query=query_value,
                 reasoning_chain=verified_reasons,
                 final_answer=final_result['answer'],
                 confidence=final_result.get('confidence', 0.0),

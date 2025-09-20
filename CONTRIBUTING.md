@@ -1,6 +1,6 @@
-# Contributing to CRLLM
+# Contributing to CRQUBO
 
-Thank you for your interest in contributing to CRLLM! This document provides guidelines and information for contributors.
+Thank you for your interest in contributing to CRQUBO! This document provides guidelines and information for contributors.
 
 ## Table of Contents
 
@@ -24,12 +24,12 @@ This project follows the [Contributor Covenant Code of Conduct](https://www.cont
 1. **Fork the repository** on GitHub
 2. **Clone your fork** locally:
    ```bash
-   git clone https://github.com/your-username/CRLLM.git
-   cd CRLLM
+   git clone https://github.com/your-username/CRQUBO.git
+   cd CRQUBO
    ```
 3. **Add the upstream remote**:
    ```bash
-   git remote add upstream https://github.com/original-username/CRLLM.git
+   git remote add upstream https://github.com/original-username/CRQUBO.git
    ```
 
 ## Development Setup
@@ -38,7 +38,7 @@ This project follows the [Contributor Covenant Code of Conduct](https://www.cont
 
 - Python 3.8 or higher
 - Git
-- OpenAI API key (for testing)
+- (Optional) OpenAI API key if you plan to use OpenAI for testing; CRQUBO supports modular backends
 
 ### Installation
 
@@ -71,7 +71,7 @@ This project follows the [Contributor Covenant Code of Conduct](https://www.cont
 pytest
 
 # Run with coverage
-pytest --cov=crllm --cov-report=html
+pytest --cov=crqubo --cov-report=html
 
 # Run specific test file
 pytest tests/test_core.py
@@ -84,19 +84,19 @@ pytest -v
 
 ```bash
 # Format code
-black crllm/ tests/ examples/
+black crqubo/ tests/ examples/
 
 # Sort imports
-isort crllm/ tests/ examples/
+isort crqubo/ tests/ examples/
 
 # Lint code
-flake8 crllm/ tests/ examples/
+flake8 crqubo/ tests/ examples/
 
 # Type checking
-mypy crllm/
+mypy crqubo/
 
 # Security check
-bandit -r crllm/
+bandit -r crqubo/
 ```
 
 ## Contributing Guidelines
@@ -163,30 +163,30 @@ We use the following tools to maintain code quality:
 
 ```bash
 # Format all Python files
-black crllm/ tests/ examples/
+black crqubo/ tests/ examples/
 
 # Check formatting without making changes
-black --check crllm/ tests/ examples/
+black --check crqubo/ tests/ examples/
 ```
 
 ### Import Organization
 
 ```bash
 # Sort imports
-isort crllm/ tests/ examples/
+isort crqubo/ tests/ examples/
 
 # Check import sorting
-isort --check-only crllm/ tests/ examples/
+isort --check-only crqubo/ tests/ examples/
 ```
 
 ### Linting
 
 ```bash
 # Run flake8
-flake8 crllm/ tests/ examples/
+flake8 crqubo/ tests/ examples/
 
 # Run with specific configuration
-flake8 --config=.flake8 crllm/
+flake8 --config=.flake8 crqubo/
 ```
 
 ### Type Hints
@@ -200,12 +200,12 @@ Example:
 from typing import Dict, List, Optional, Union
 
 def process_query(
-    query: str,
-    domain: Optional[str] = None,
-    config: Dict[str, Any] = None
+   query: str,
+   domain: Optional[str] = None,
+   config: Dict[str, Any] = None
 ) -> ReasoningResult:
-    """Process a query through the CRLLM pipeline."""
-    pass
+   """Process a query through the CRQUBO pipeline."""
+   pass
 ```
 
 ### Documentation
@@ -262,27 +262,27 @@ def process_query(
 ```python
 import pytest
 from unittest.mock import Mock, patch
-from crllm.core import CRLLMPipeline
+from crqubo.core import CRLLMPipeline
 
 class TestCRLLMPipeline:
-    """Test cases for CRLLMPipeline."""
+   """Test cases for CRLLMPipeline."""
     
-    def test_pipeline_initialization(self):
-        """Test pipeline initialization with default modules."""
-        pipeline = CRLLMPipeline()
-        assert pipeline.task_interface is not None
-        assert pipeline.reason_sampler is not None
+   def test_pipeline_initialization(self):
+      """Test pipeline initialization with default modules."""
+      pipeline = CRLLMPipeline()
+      assert pipeline.task_interface is not None
+      assert pipeline.reason_sampler is not None
     
-    @patch('crllm.core.openai.ChatCompletion.create')
-    def test_process_query_with_mock(self, mock_openai):
-        """Test query processing with mocked OpenAI."""
-        mock_openai.return_value.choices = [Mock()]
-        mock_openai.return_value.choices[0].message.content = "Test answer"
+   @patch('crqubo.core.openai.ChatCompletion.create')
+   def test_process_query_with_mock(self, mock_openai):
+      """Test query processing with mocked OpenAI."""
+      mock_openai.return_value.choices = [Mock()]
+      mock_openai.return_value.choices[0].message.content = "Test answer"
         
-        pipeline = CRLLMPipeline()
-        result = pipeline.process_query("Test query")
+      pipeline = CRLLMPipeline()
+      result = pipeline.process_query("Test query")
         
-        assert result.final_answer == "Test answer"
+      assert result.final_answer == "Test answer"
 ```
 
 ### Test Coverage
@@ -299,7 +299,7 @@ class TestCRLLMPipeline:
 pytest
 
 # Run with coverage
-pytest --cov=crllm --cov-report=html
+pytest --cov=crqubo --cov-report=html
 
 # Run specific test
 pytest tests/test_core.py::TestCRLLMPipeline::test_pipeline_initialization
@@ -322,10 +322,10 @@ pytest -n auto
 
 2. **Run code quality checks**:
    ```bash
-   black --check crllm/ tests/ examples/
-   isort --check-only crllm/ tests/ examples/
-   flake8 crllm/ tests/ examples/
-   mypy crllm/
+   black --check crqubo/ tests/ examples/
+   isort --check-only crqubo/ tests/ examples/
+   flake8 crqubo/ tests/ examples/
+   mypy crqubo/
    ```
 
 3. **Update documentation** if needed

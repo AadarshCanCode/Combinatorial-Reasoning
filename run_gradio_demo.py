@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-CRLLM Gradio Demo Launcher
+CRQUBO Gradio Demo Launcher
 
-Simple launcher script for the CRLLM Gradio demo.
+Simple launcher script for the CRQUBO Gradio demo.
 """
 
 import os
@@ -27,10 +27,14 @@ def check_requirements():
 def check_api_key():
     """Check if OpenAI API key is set."""
     api_key = os.getenv('OPENAI_API_KEY')
+    # This check is advisory — CRQUBO supports modular backends.
+    # If you are using a non-OpenAI backend (local model, HF endpoint, Anthropic, etc.),
+    # ensure your backend is configured in `config.json` or via environment variables.
     if not api_key or api_key == 'your-openai-api-key-here':
-        print("⚠️  Warning: OPENAI_API_KEY not set or using placeholder value.")
-        print("   Set your API key: export OPENAI_API_KEY='your-actual-key-here'")
-        print("   Or edit the gradio_demo.py file to set it directly.")
+        print("⚠️  OPENAI_API_KEY not set or using placeholder value. If you intend to use OpenAI, set the key.")
+        print("   Example (Linux/macOS): export OPENAI_API_KEY='your-actual-key-here'")
+        print("   Example (Windows PowerShell): setx OPENAI_API_KEY 'your-actual-key-here'")
+        # We do not force exit here because other backends may be configured.
         return False
     else:
         print("✅ OpenAI API key is set.")
@@ -38,7 +42,7 @@ def check_api_key():
 
 def main():
     """Main launcher function."""
-    print("🚀 CRLLM Gradio Demo Launcher")
+    print("🚀 CRQUBO Gradio Demo Launcher")
     print("=" * 40)
     
     # Check requirements

@@ -1,5 +1,5 @@
 """
-Tests for CRLLM core functionality.
+Tests for CRQUBO core functionality.
 """
 
 import pytest
@@ -7,15 +7,24 @@ import os
 import tempfile
 import json
 from unittest.mock import Mock, patch, MagicMock
-from crllm.core import CRLLMPipeline, ReasoningResult, load_config, _validate_config
-from crllm.modules import (
+from crqubo.core import CRLLMPipeline, ReasoningResult, load_config, _validate_config
+from crqubo.modules import (
     TaskAgnosticInterface,
     ReasonSampler,
     SemanticFilter,
     CombinatorialOptimizer,
     ReasonOrderer,
-    FinalInference
+    FinalInference,
 )
+# imports resolved above
+
+# Ensure environment flags don't enable retrieval/verification unexpectedly during tests
+for k in list(os.environ.keys()):
+    if k.startswith('CRQUBO_') or k.startswith('CRLLM_'):
+        os.environ.pop(k, None)
+
+# Module base used for patch decorators in tests
+MODULE = 'crqubo'
 
 
 class TestCRLLMPipeline:
@@ -47,57 +56,59 @@ class TestCRLLMPipeline:
         assert pipeline.task_interface is custom_interface
         assert pipeline.reason_sampler is custom_sampler
     
-    @patch('crllm.core.TaskAgnosticInterface')
-    @patch('crllm.core.ReasonSampler')
-    @patch('crllm.core.SemanticFilter')
-    @patch('crllm.core.CombinatorialOptimizer')
-    @patch('crllm.core.ReasonOrderer')
-    @patch('crllm.core.FinalInference')
-    def test_process_query_basic(self, mock_inference, mock_orderer, 
-                                mock_optimizer, mock_filter, mock_sampler, mock_interface):
+    def test_process_query_basic(self):
         """Test basic query processing."""
-        # Setup mocks
-        mock_interface.return_value.process_input.return_value = Mock(
-            normalized_query="test query",
-            domain="general",
-            query_type="question",
-            complexity="simple",
-            metadata={}
-        )
-        
-        mock_sampler.return_value.sample_reasons.return_value = [
-            Mock(content="Step 1", confidence=0.8, reasoning_type="general"),
-            Mock(content="Step 2", confidence=0.7, reasoning_type="general")
-        ]
-        
-        mock_filter.return_value.filter_reasons.return_value = [
-            Mock(content="Step 1", confidence=0.8, reasoning_type="general"),
-            Mock(content="Step 2", confidence=0.7, reasoning_type="general")
-        ]
-        
-        mock_optimizer.return_value.optimize_selection.return_value = [
-            Mock(content="Step 1", confidence=0.8, reasoning_type="general"),
-            Mock(content="Step 2", confidence=0.7, reasoning_type="general")
-        ]
-        
-        mock_orderer.return_value.order_reasons.return_value = ["Step 1", "Step 2"]
-        
-        mock_inference.return_value.generate_answer.return_value = {
-            'answer': 'Test answer',
-            'confidence': 0.8,
-            'metadata': {}
-        }
-        
-        # Create pipeline and process query
-        pipeline = CRLLMPipeline()
-        result = pipeline.process_query("test query")
-        
-        # Verify result
-        assert isinstance(result, ReasoningResult)
-        assert result.query == "test query"
-        assert result.final_answer == "Test answer"
-        assert result.confidence == 0.8
-        assert result.reasoning_chain == ["Step 1", "Step 2"]
+        # Import core module object dynamically to patch its classes
+        import crqubo.core as core_module
+
+        with patch.object(core_module, 'TaskAgnosticInterface') as mock_interface, \
+             patch.object(core_module, 'ReasonSampler') as mock_sampler, \
+             patch.object(core_module, 'SemanticFilter') as mock_filter, \
+             patch.object(core_module, 'CombinatorialOptimizer') as mock_optimizer, \
+             patch.object(core_module, 'ReasonOrderer') as mock_orderer, \
+             patch.object(core_module, 'FinalInference') as mock_inference:
+            # Setup mocks
+            mock_interface.return_value.process_input.return_value = Mock(
+                normalized_query="test query",
+                domain="general",
+                query_type="question",
+                complexity="simple",
+                metadata={}
+            )
+
+            mock_sampler.return_value.sample_reasons.return_value = [
+                Mock(content="Step 1", confidence=0.8, reasoning_type="general"),
+                Mock(content="Step 2", confidence=0.7, reasoning_type="general")
+            ]
+
+            mock_filter.return_value.filter_reasons.return_value = [
+                Mock(content="Step 1", confidence=0.8, reasoning_type="general"),
+                Mock(content="Step 2", confidence=0.7, reasoning_type="general")
+            ]
+
+            mock_optimizer.return_value.optimize_selection.return_value = [
+                Mock(content="Step 1", confidence=0.8, reasoning_type="general"),
+                Mock(content="Step 2", confidence=0.7, reasoning_type="general")
+            ]
+
+            mock_orderer.return_value.order_reasons.return_value = ["Step 1", "Step 2"]
+
+            mock_inference.return_value.generate_answer.return_value = {
+                'answer': 'Test answer',
+                'confidence': 0.8,
+                'metadata': {}
+            }
+
+            # Create pipeline and process query
+            pipeline = CRLLMPipeline()
+            result = pipeline.process_query("test query")
+
+            # Verify result
+            assert isinstance(result, ReasoningResult)
+            assert result.query == "test query"
+            assert result.final_answer == "Test answer"
+            assert result.confidence == 0.8
+            assert result.reasoning_chain == ["Step 1", "Step 2"]
     
     def test_get_pipeline_info(self):
         """Test getting pipeline information."""
@@ -165,8 +176,8 @@ class TestConfigLoading:
         """Test loading configuration with environment variables."""
         with patch.dict(os.environ, {
             'OPENAI_API_KEY': 'test-key',
-            'CRLLM_USE_RETRIEVAL': 'true',
-            'CRLLM_MODEL': 'gpt-4'
+            'CRQUBO_USE_RETRIEVAL': 'true',
+            'CRQUBO_MODEL': 'gpt-4'
         }):
             config = load_config()
             assert config['reason_sampler']['api_key'] == 'test-key'

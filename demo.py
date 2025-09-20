@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-CRLLM Framework Demo
+CRQUBO Framework Demo
 
-This script demonstrates the complete CRLLM framework with various
+This script demonstrates the complete CRQUBO framework with various
 reasoning tasks across different domains.
 """
 
@@ -14,7 +14,7 @@ from pathlib import Path
 # Add the current directory to the path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from crllm import CRLLMPipeline
+from crqubo import CRLLMPipeline
 
 
 def print_section(title, char="=", width=60):
@@ -38,12 +38,12 @@ def print_result(result, show_reasoning=True):
 
 
 def main():
-    """Run the CRLLM demo."""
-    print("🚀 CRLLM: Combinatorial Reasoning with Large Language Models")
+    """Run the CRQUBO demo."""
+    print("🚀 CRQUBO: Combinatorial Reasoning with Large Language Models")
     print("=" * 60)
     
-    # Set up API key (replace with your actual key)
-    os.environ['OPENAI_API_KEY'] = 'your-openai-api-key-here'
+    # NOTE: Do not hardcode API keys in scripts. If you want to use OpenAI, set
+    # OPENAI_API_KEY in your environment or configure a different backend in config.json.
     
     # Example queries for different domains
     examples = [
@@ -125,41 +125,42 @@ def main():
         print(f"  - {module_name}: {module_type}")
     
     print(f"\nConfiguration: {info['config']}")
-    
+
     print_section("Usage Instructions")
     print("""
-To use CRLLM in your own projects:
+To use CRQUBO in your own projects:
 
 1. Install the package:
-   pip install -e .
+    pip install -e .
 
-2. Set your OpenAI API key:
-   export OPENAI_API_KEY="your-key-here"
+2. Configure a backend (OpenAI optional):
+    - For OpenAI: set OPENAI_API_KEY in your environment.
+    - For other providers or local models: update `config.json` or implement a small adapter class.
 
 3. Basic usage:
-   from crllm import CRLLMPipeline
-   
-   pipeline = CRLLMPipeline()
-   result = pipeline.process_query("Your question here")
-   print(result.final_answer)
+    from crqubo import CRLLMPipeline
+
+    pipeline = CRLLMPipeline()
+    result = pipeline.process_query("Your question here")
+    print(result.final_answer)
 
 4. Advanced usage with configuration:
-   config = {
-       "use_retrieval": True,
-       "use_verification": True,
-       "reason_sampler": {"num_samples": 8}
-   }
-   pipeline = CRLLMPipeline(config=config)
+    config = {
+         "use_retrieval": True,
+         "use_verification": True,
+         "reason_sampler": {"num_samples": 8}
+    }
+    pipeline = CRLLMPipeline(config=config)
 
 5. Command line usage:
-   python -m crllm.main "Your question" --domain causal --use-retrieval
+    python -m crqubo.main "Your question" --domain causal --use-retrieval
 
 For more examples, see the examples/ directory and the Jupyter notebook.
     """)
     
     print_section("Demo Complete! 🎉")
-    print("Thank you for trying CRLLM!")
-    print("Visit https://github.com/crllm/crllm for more information.")
+    print("Thank you for trying CRQUBO!")
+    print("Visit the project repository for more information.")
 
 
 if __name__ == "__main__":
