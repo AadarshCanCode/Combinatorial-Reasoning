@@ -1,4 +1,4 @@
-### Interactive Web Demo (Recommended)
+### Interactive Web Demo 
 
 The easiest way to try CRQUBO is through our interactive Gradio web interface.
 
