@@ -254,7 +254,7 @@ Steps:"""
         reasoning_steps = []
         for i in range(num_samples):
             try:
-                response = openai.ChatCompletion.create(
+                response = self.openai.ChatCompletion.create(
                     model=self.model,
                     messages=[
                         {"role": "system", "content": "You are an expert reasoning assistant. Provide clear, logical reasoning steps."},

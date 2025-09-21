@@ -5,7 +5,7 @@ This module arranges selected reasoning steps into logical chains, supporting
 both Chain-of-Thought and Tree-of-Thought patterns.
 """
 
-from typing import Dict, List, Any, Optional, Tuple, Union
+from typing import Dict, List, Any, Optional, Tuple, Union, TYPE_CHECKING
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
 from enum import Enum
@@ -77,6 +77,9 @@ class SemanticFlowOrderer(BaseOrderer):
         """
         self.embedding_model = SentenceTransformer(embedding_model)
         self.config = config or {}
+
+if TYPE_CHECKING:
+    from .reason_sampler import ReasoningStep
     
     def order_reasons(
         self,

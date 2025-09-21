@@ -5,7 +5,7 @@ This module uses embeddings (e.g., Sentence-BERT) to remove near-duplicate
 reasoning chains and filter out low-quality reasoning steps.
 """
 
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Dict, List, Any, Optional, Tuple, TYPE_CHECKING
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
 import numpy as np
@@ -82,6 +82,9 @@ class SentenceBERTFilter(BaseSemanticFilter):
         
         # Quality assessment patterns
         self.quality_patterns = self._load_quality_patterns()
+
+if TYPE_CHECKING:
+    from .reason_sampler import ReasoningStep
     
     def _load_quality_patterns(self) -> Dict[str, List[str]]:
         """Load patterns for quality assessment."""

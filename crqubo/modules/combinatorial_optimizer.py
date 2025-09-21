@@ -6,7 +6,7 @@ to select a diverse, high-utility subset of reasoning steps that maximizes
 both individual quality and collective diversity.
 """
 
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Dict, List, Any, Optional, Tuple, TYPE_CHECKING
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
 import numpy as np
@@ -18,6 +18,9 @@ from qiskit_optimization.algorithms import RecursiveMinimumEigenOptimizer
 from qiskit_optimization.converters import QuadraticProgramToQubo
 from qiskit_algorithms import QAOA
 from qiskit_aer import Aer
+
+if TYPE_CHECKING:
+    from .reason_sampler import ReasoningStep
 
 
 @dataclass
