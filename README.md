@@ -1,8 +1,26 @@
+## 🚀 Performance Optimizations
+
+This version of CRQUBO includes several performance optimizations:
+
+- **Configuration Caching**: Configuration loading is cached using `@lru_cache` for faster subsequent initializations
+- **Code Formatting**: All code is formatted with Black (88 character line length) for consistency
+- **Import Optimization**: Unused imports have been removed to reduce memory footprint
+- **Linting**: Code passes flake8 linting with strict quality standards
+- **Type Hints**: Comprehensive type hints for better IDE support and runtime optimization
+
+### Performance Testing
+
+Run the performance test suite to verify optimizations:
+
+```bash
+python test_performance.py
+```
+
 ### Interactive Web Demo (Recommended)
 
 The easiest way to try CRQUBO is through our interactive Gradio web interface.
 
-Note: the framework is modular — it supports multiple LLM and optimization backends. OpenAI is a common default, but you can configure other providers (local models, Hugging Face endpoints, Anthropic, or on-prem inference servers) via configuration or by implementing the simple backend adapter discussed below.
+Note: the framework is modular — it supports multiple LLM and optimization backends. OpenAI and Hugging Face are the primary supported providers, with quantum computing libraries (Qiskit, D-Wave) and vector databases (ChromaDB, FAISS) for advanced optimization.
 
 ```bash
 # Install dependencies

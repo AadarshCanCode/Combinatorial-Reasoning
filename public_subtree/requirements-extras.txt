@@ -1,7 +1,0 @@
-# Optional/extras for demos and backends
-gradio
-chromadb
-faiss-cpu
-sentence-transformers
-qiskit
-dwave-ocean-sdk

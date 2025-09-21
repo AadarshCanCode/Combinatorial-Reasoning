@@ -135,33 +135,130 @@ chroma_db/
 *.sqlite3
 
 # API keys and secrets
+.env
 .env.local
 .env.production
+.env.*
 secrets.json
 api_keys.json
+config_local.json
+credentials.json
+token.json
 
-# Model cache
+# Model cache and downloads
 .cache/
 models/
 checkpoints/
+huggingface_cache/
+transformers_cache/
+.cache/
+downloads/
 
 # Logs
 logs/
 *.log
+*.log.*
 
 # Temporary files
 tmp/
 temp/
 *.tmp
 *.temp
+*.bak
+*.swp
+*.swo
 
-# IDE
+# IDE and editor files
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+.project
+.pydevproject
 
-# OS
+# OS generated files
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
+
+# Python specific
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Virtual environments
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# Quantum computing specific (removed integrations)
+dwave_config/
+qiskit_config/
+quantum_backends/
+
+# Vector database specific (removed integrations)
+chroma_data/
+faiss_index/
+vector_db/

@@ -2,14 +2,14 @@
 
 from .core import CRLLMPipeline
 from .modules import (
-    TaskAgnosticInterface,
-    RetrievalModule,
-    ReasonSampler,
-    SemanticFilter,
     CombinatorialOptimizer,
-    ReasonOrderer,
     FinalInference,
+    ReasonOrderer,
+    ReasonSampler,
     ReasonVerifier,
+    RetrievalModule,
+    SemanticFilter,
+    TaskAgnosticInterface,
 )
 
 __version__ = "0.1.0"
