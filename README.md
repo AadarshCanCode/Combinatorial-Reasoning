@@ -791,14 +791,14 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - D-Wave for quantum optimization
 - The broader AI research community
 
-## 📞 Support
+##  Support
 
 - **Documentation**: [https://crllm.readthedocs.io](https://crllm.readthedocs.io)
 - **Issues**: [GitHub Issues](https://github.com/your-username/CRLLM/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/your-username/CRLLM/discussions)
 - **Email**: support@crllm.com
 
-## 🔗 Related Projects
+##  Related Projects
 
 - [Chain-of-Thought Prompting](https://arxiv.org/abs/2201.11903) - Original CoT paper
 - [Tree-of-Thought Reasoning](https://arxiv.org/abs/2305.10601) - ToT reasoning framework
