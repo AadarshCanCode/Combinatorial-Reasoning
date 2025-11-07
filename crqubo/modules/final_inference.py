@@ -6,13 +6,18 @@ It combines the ordered reasoning chain with the original query to produce
 a coherent, well-structured response.
 """
 
+import logging
 import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-import openai
+from ..exceptions import APIKeyError, CRQUBOError, InferenceError, handle_external_exception
+from ..logging_utils import log_duration
+from ..retry_utils import ResourceTracker, retry_with_exponential_backoff
+
+logger = logging.getLogger(__name__)
 
 
 class InferenceStrategy(Enum):
@@ -54,7 +59,7 @@ class BaseInferenceEngine(ABC):
 
 
 class OpenAIInferenceEngine(BaseInferenceEngine):
-    """OpenAI-based inference engine implementation."""
+    """OpenAI-based inference engine implementation using OpenAI v1.0+ client."""
 
     def __init__(
         self,
@@ -70,14 +75,66 @@ class OpenAIInferenceEngine(BaseInferenceEngine):
             api_key: OpenAI API key (if not set in environment)
             config: Additional configuration
         """
+        try:
+            from openai import (
+                APIConnectionError,
+                APIError,
+                APITimeoutError,
+                OpenAI,
+                RateLimitError,
+            )
+        except ImportError as e:
+            raise InferenceError(
+                "OpenAI package not installed",
+                recovery_hint="Install with: pip install openai>=1.0.0",
+            ) from e
+
         self.model = model
         self.config = config or {}
+        self._api_error_cls = APIError
+        self._retryable_errors = (
+            RateLimitError,
+            APITimeoutError,
+            APIConnectionError,
+        )
 
-        if api_key:
-            openai.api_key = api_key
+        # Initialize OpenAI client with new v1.0+ API
+        try:
+            self.client = OpenAI(api_key=api_key)
+        except Exception as e:
+            if "api_key" in str(e).lower():
+                raise APIKeyError(
+                    "Failed to initialize OpenAI client",
+                    recovery_hint="Set OPENAI_API_KEY environment variable or pass api_key parameter",
+                ) from e
+            raise handle_external_exception(e, context="OpenAIInferenceEngine initialization") from e
+
+        # Initialize resource tracker
+        max_calls_per_hour = self.config.get("max_api_calls_per_hour")
+        max_tokens_per_hour = self.config.get("max_tokens_per_hour")
+        if max_calls_per_hour or max_tokens_per_hour:
+            self.resource_tracker = ResourceTracker(
+                max_api_calls=max_calls_per_hour,
+                max_tokens=max_tokens_per_hour,
+                tracking_window=3600.0,
+            )
+        else:
+            self.resource_tracker = None
+
+        # Default parameters and retry configuration
+        self.temperature = self.config.get("temperature", 0.7)
+        self.top_p = self.config.get("top_p", 0.9)
+        self.max_tokens = self.config.get("max_tokens", 1500)
+        self.request_timeout = self.config.get("request_timeout", 60.0)
+        self.max_retries = self.config.get("max_retries", 3)
+        self.retry_initial_delay = self.config.get("retry_initial_delay", 1.0)
+        self.retry_backoff_factor = self.config.get("retry_backoff_factor", 2.0)
+        self.retry_max_delay = self.config.get("retry_max_delay", 30.0)
 
         # Load inference templates
         self.templates = self._load_inference_templates()
+
+        logger.info("OpenAIInferenceEngine initialized", extra={"model": model})
 
     def _load_inference_templates(self) -> Dict[str, Dict[str, str]]:
         """Load inference prompt templates for different strategies."""
@@ -207,20 +264,39 @@ Based on this reasoning process, here's my answer:""",
             knowledge_context=knowledge_context,
         )
 
-        # Generate response
+        # Generate response using new OpenAI client with retry logic
         try:
-            response = openai.ChatCompletion.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                max_tokens=kwargs.get("max_tokens", 1500),
-                temperature=kwargs.get("temperature", 0.7),
-                top_p=kwargs.get("top_p", 0.9),
-            )
+            with log_duration(
+                logger,
+                "final inference",
+                query=query,
+                strategy=strategy.value,
+            ):
+                response = self._call_openai_with_retry(
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
+                    strategy=strategy.value,
+                    **kwargs,
+                )
 
-            answer = response.choices[0].message.content.strip()
+            if not response.choices:
+                raise InferenceError(
+                    "No choices returned by OpenAI",
+                    recovery_hint="API returned an empty response",
+                    query=query,
+                    strategy=strategy.value,
+                )
+
+            answer = response.choices[0].message.content
+            if not answer:
+                raise InferenceError(
+                    "Empty answer received from OpenAI",
+                    recovery_hint="API returned a response without content",
+                    query=query,
+                    strategy=strategy.value,
+                )
+
+            answer = answer.strip()
 
             # Extract additional information
             reasoning_summary = self._extract_reasoning_summary(answer)
@@ -228,6 +304,19 @@ Based on this reasoning process, here's my answer:""",
             confidence = self._estimate_confidence(answer, reasoning_chain)
 
             inference_time = time.time() - start_time
+
+            tokens_used = None
+            if hasattr(response, "usage") and response.usage:
+                tokens_used = getattr(response.usage, "total_tokens", None)
+
+            logger.info(
+                "Generated final answer",
+                extra={
+                    "strategy": strategy.value,
+                    "tokens_used": tokens_used,
+                    "confidence": confidence,
+                },
+            )
 
             return InferenceResult(
                 answer=answer,
@@ -238,25 +327,93 @@ Based on this reasoning process, here's my answer:""",
                 strategy_used=strategy.value,
                 metadata={
                     "model_used": self.model,
-                    "tokens_used": (
-                        response.usage.total_tokens
-                        if hasattr(response, "usage")
-                        else None
-                    ),
+                    "tokens_used": tokens_used,
                 },
             )
 
+        except InferenceError:
+            raise
         except Exception as e:
-            print(f"Error generating answer: {e}")
-            return InferenceResult(
-                answer="I apologize, but I encountered an error while generating the answer.",
-                confidence=0.0,
-                reasoning_summary="Error occurred during inference",
-                evidence_used=[],
-                inference_time=time.time() - start_time,
-                strategy_used=strategy.value,
-                metadata={"error": str(e)},
+            crqubo_error = handle_external_exception(e, context="final_inference")
+            raise InferenceError(
+                f"Failed to generate final answer: {crqubo_error.message}",
+                recovery_hint=crqubo_error.recovery_hint,
+                query=query,
+                strategy=strategy.value,
+            ) from e
+
+    def _call_openai_with_retry(
+        self, system_prompt: str, user_prompt: str, strategy: str, **kwargs
+    ):
+        """
+        Call OpenAI API with retry logic.
+
+        Args:
+            system_prompt: System prompt
+            user_prompt: User prompt
+            strategy: Inference strategy name
+            **kwargs: Additional parameters
+
+        Returns:
+            OpenAI API response
+
+        Raises:
+            InferenceError: If API call fails after retries
+        """
+        @retry_with_exponential_backoff(
+            max_retries=self.max_retries,
+            initial_delay=self.retry_initial_delay,
+            max_delay=self.retry_max_delay,
+            backoff_factor=self.retry_backoff_factor,
+            retryable_exceptions=self._retryable_errors,
+            logger_instance=logger,
+        )
+        def _make_request():
+            # Check resource limits before making API call
+            if self.resource_tracker:
+                self.resource_tracker.ensure_call_allowed()
+
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                max_tokens=kwargs.get("max_tokens", self.max_tokens),
+                temperature=kwargs.get("temperature", self.temperature),
+                top_p=kwargs.get("top_p", self.top_p),
+                timeout=self.request_timeout,
             )
+            return response
+
+        try:
+            response = _make_request()
+
+            # Track API usage
+            if self.resource_tracker:
+                tokens_used = (
+                    getattr(response.usage, "total_tokens", 0)
+                    if hasattr(response, "usage")
+                    else 0
+                )
+                self.resource_tracker.track_api_call(tokens_used)
+
+            return response
+
+        except self._retryable_errors as e:
+            # These should have been retried already
+            raise InferenceError(
+                f"API call failed after {self.max_retries} retries",
+                recovery_hint="Check network connectivity and API status",
+                strategy=strategy,
+            ) from e
+        except Exception as e:
+            crqubo_error = handle_external_exception(e, context=f"inference_{strategy}")
+            raise InferenceError(
+                f"API call failed: {crqubo_error.message}",
+                recovery_hint=crqubo_error.recovery_hint,
+                strategy=strategy,
+            ) from e
 
     def _format_reasoning_chain(self, reasoning_chain: List[str]) -> str:
         """Format reasoning chain for prompt."""

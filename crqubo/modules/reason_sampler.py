@@ -11,6 +11,10 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
+from ..exceptions import APIKeyError, CRQUBOError, SamplingError, handle_external_exception
+from ..logging_utils import log_duration
+from ..retry_utils import ResourceTracker, retry_with_exponential_backoff
+
 # Set up logging
 logger = logging.getLogger(__name__)
 
@@ -59,7 +63,7 @@ class BaseReasonSampler(ABC):
 
 
 class OpenAISampler(BaseReasonSampler):
-    """OpenAI-based reason sampler implementation."""
+    """OpenAI-based reason sampler implementation using OpenAI v1.0+ client."""
 
     def __init__(
         self,
@@ -76,24 +80,69 @@ class OpenAISampler(BaseReasonSampler):
             config: Additional configuration
         """
         try:
-            import openai
-
-            self.openai = openai
-        except ImportError:
-            raise ImportError(
-                "OpenAI package not installed. Install with: pip install openai"
+            from openai import (
+                APIConnectionError,
+                APIError,
+                APITimeoutError,
+                OpenAI,
+                RateLimitError,
             )
+        except ImportError as e:
+            raise SamplingError(
+                "OpenAI package not installed",
+                recovery_hint="Install with: pip install openai>=1.0.0",
+            ) from e
 
         self.model = model
         self.config = config or {}
+        self._api_error_cls = APIError
+        self._retryable_errors = (
+            RateLimitError,
+            APITimeoutError,
+            APIConnectionError,
+        )
 
-        if api_key:
-            self.openai.api_key = api_key
-        elif not self.openai.api_key:
-            logger.warning("No OpenAI API key provided")
+        # Initialize OpenAI client with new v1.0+ API
+        try:
+            self.client = OpenAI(api_key=api_key)
+        except Exception as e:
+            if "api_key" in str(e).lower():
+                raise APIKeyError(
+                    "Failed to initialize OpenAI client",
+                    recovery_hint="Set OPENAI_API_KEY environment variable or pass api_key parameter",
+                ) from e
+            raise handle_external_exception(e, context="OpenAISampler initialization") from e
+
+        # Initialize resource tracker
+        max_calls_per_hour = self.config.get("max_api_calls_per_hour")
+        max_tokens_per_hour = self.config.get("max_tokens_per_hour")
+        if max_calls_per_hour or max_tokens_per_hour:
+            self.resource_tracker = ResourceTracker(
+                max_api_calls=max_calls_per_hour,
+                max_tokens=max_tokens_per_hour,
+                tracking_window=3600.0,
+            )
+        else:
+            self.resource_tracker = None
+
+        # Default sampling parameters and retry configuration
+        self.temperature = self.config.get("temperature", 0.7)
+        self.top_p = self.config.get("top_p", 0.9)
+        self.max_tokens = self.config.get("max_tokens", 1000)
+        self.request_timeout = self.config.get("request_timeout", 60.0)
+        self.max_retries = self.config.get("max_retries", 3)
+        self.retry_initial_delay = self.config.get("retry_initial_delay", 1.0)
+        self.retry_backoff_factor = self.config.get("retry_backoff_factor", 2.0)
+        self.retry_max_delay = self.config.get("retry_max_delay", 30.0)
+        self.system_prompt = self.config.get(
+            "system_prompt",
+            "You are an expert reasoning assistant. Provide clear, logical reasoning steps.",
+        )
 
         # Load reasoning templates
         self.templates = self._load_reasoning_templates()
+
+        logger.info("OpenAISampler initialized", extra={"model": model})
 
     def _load_reasoning_templates(self) -> Dict[str, Dict[str, str]]:
         """Load reasoning prompt templates for different domains."""
@@ -248,35 +297,136 @@ Steps:""",
             knowledge_text = "\n".join([doc.content for doc in retrieved_knowledge[:3]])
             prompt += f"\n\nRelevant knowledge:\n{knowledge_text}\n"
 
-        # Generate multiple samples
+        # Generate multiple samples with error handling
         reasoning_steps = []
-        for i in range(num_samples):
-            try:
-                response = self.openai.ChatCompletion.create(
-                    model=self.model,
-                    messages=[
-                        {
-                            "role": "system",
-                            "content": "You are an expert reasoning assistant. Provide clear, logical reasoning steps.",
-                        },
-                        {"role": "user", "content": prompt},
-                    ],
-                    max_tokens=kwargs.get("max_tokens", 1000),
-                    temperature=kwargs.get("temperature", 0.7),
-                    top_p=kwargs.get("top_p", 0.9),
-                )
+        failed_samples = 0
+        
+        with log_duration(logger, f"sampling {num_samples} reasoning steps", query=query):
+            for i in range(num_samples):
+                try:
+                    # Check resource limits before making API call
+                    if self.resource_tracker:
+                        self.resource_tracker.ensure_call_allowed()
+                    
+                    # Call OpenAI API with new client and retry logic
+                    content = self._call_openai_with_retry(prompt, i, **kwargs)
+                    
+                    # Parse reasoning steps from response
+                    steps = self._parse_reasoning_steps(content, i)
+                    reasoning_steps.extend(steps)
+                    
+                    logger.debug(f"Successfully generated sample {i+1}/{num_samples}")
 
-                content = response.choices[0].message.content.strip()
+                except Exception as e:
+                    failed_samples += 1
+                    logger.warning(
+                        f"Failed to generate sample {i+1}/{num_samples}: {e}",
+                        exc_info=True
+                    )
+                    # Continue with other samples instead of failing completely
+                    if failed_samples >= num_samples // 2:
+                        # If more than half failed, raise error
+                        raise SamplingError(
+                            f"Failed to generate sufficient samples ({failed_samples}/{num_samples} failed)",
+                            recovery_hint="Check API key, quota, and connectivity",
+                            query=query,
+                            failed_count=failed_samples,
+                        ) from e
 
-                # Parse reasoning steps from response
-                steps = self._parse_reasoning_steps(content, i)
-                reasoning_steps.extend(steps)
-
-            except Exception as e:
-                print(f"Error generating reasoning step {i}: {e}")
-                continue
-
+        if not reasoning_steps:
+            raise SamplingError(
+                "No reasoning steps generated",
+                recovery_hint="All sampling attempts failed - check logs for details",
+                query=query,
+                num_samples=num_samples,
+            )
+        
+        logger.info(
+            f"Generated {len(reasoning_steps)} reasoning steps from {num_samples - failed_samples}/{num_samples} successful samples"
+        )
         return reasoning_steps
+    
+    def _call_openai_with_retry(self, prompt: str, sample_id: int, **kwargs) -> str:
+        """
+        Call OpenAI API with retry logic.
+        
+        Args:
+            prompt: The prompt to send
+            sample_id: Sample identifier
+            **kwargs: Additional parameters
+            
+        Returns:
+            Response content text
+            
+        Raises:
+            SamplingError: If API call fails after retries
+        """
+        @retry_with_exponential_backoff(
+            max_retries=self.max_retries,
+            initial_delay=self.retry_initial_delay,
+            max_delay=self.retry_max_delay,
+            backoff_factor=self.retry_backoff_factor,
+            retryable_exceptions=self._retryable_errors,
+            logger_instance=logger,
+        )
+        def _make_request():
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": self.system_prompt,
+                    },
+                    {"role": "user", "content": prompt},
+                ],
+                max_tokens=kwargs.get("max_tokens", self.max_tokens),
+                temperature=kwargs.get("temperature", self.temperature),
+                top_p=kwargs.get("top_p", self.top_p),
+                timeout=self.request_timeout,
+            )
+            return response
+        
+        try:
+            response = _make_request()
+            
+            # Track API usage
+            if self.resource_tracker:
+                tokens_used = getattr(response.usage, "total_tokens", 0) if hasattr(response, "usage") else 0
+                self.resource_tracker.track_api_call(tokens_used)
+            
+            # Extract content
+            if not response.choices:
+                raise SamplingError(
+                    "No choices in API response",
+                    recovery_hint="API returned empty response",
+                    sample_id=sample_id,
+                )
+            
+            content = response.choices[0].message.content
+            if not content:
+                raise SamplingError(
+                    "Empty content in API response",
+                    recovery_hint="API returned response with no content",
+                    sample_id=sample_id,
+                )
+            
+            return content.strip()
+            
+        except self._retryable_errors as e:
+            # These should have been retried already
+            raise SamplingError(
+                f"API call failed after {self.max_retries} retries",
+                recovery_hint="Check network connectivity and API status",
+                sample_id=sample_id,
+            ) from e
+        except Exception as e:
+            # Convert to CRQUBO exception
+            crqubo_error = handle_external_exception(e, context=f"sample_{sample_id}")
+            raise SamplingError(
+                f"API call failed: {crqubo_error.message}",
+                recovery_hint=crqubo_error.recovery_hint,
+                sample_id=sample_id,
+            ) from e
 
     def _parse_reasoning_steps(
         self, content: str, sample_id: int

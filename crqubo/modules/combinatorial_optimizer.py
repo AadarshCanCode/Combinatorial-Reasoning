@@ -10,6 +10,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
+import logging
+
 import dimod
 import numpy as np
 from dwave.system import DWaveSampler, EmbeddingComposite
@@ -19,6 +21,10 @@ from qiskit_optimization import QuadraticProgram
 from qiskit_optimization.algorithms import RecursiveMinimumEigenOptimizer
 from qiskit_optimization.converters import QuadraticProgramToQubo
 from scipy.optimize import minimize
+
+from ..logging_utils import get_logger
+
+logger = get_logger(__name__)
 
 if TYPE_CHECKING:
     from .reason_sampler import ReasoningStep
@@ -85,9 +91,9 @@ class QUBOOptimizer(BaseOptimizer):
             try:
                 return EmbeddingComposite(DWaveSampler())
             except Exception as e:
-                print(
-                    f"Warning: Quantum solver not available, "
-                    f"falling back to classical: {e}"
+                logger.warning(
+                    "Quantum solver not available, falling back to classical",
+                    extra={"error": str(e)}
                 )
                 return "classical"
         elif self.solver_type == "qaoa":
@@ -369,7 +375,11 @@ class QUBOOptimizer(BaseOptimizer):
 
             return selected_indices[:max_selections]
         except Exception as e:
-            print(f"Quantum solving failed, falling back to classical: {e}")
+            logger.warning(
+                "Quantum solving failed, falling back to classical",
+                exc_info=True,
+                extra={"error": str(e)}
+            )
             return self._solve_classical(qubo_matrix, max_selections)
 
     def _solve_simulated_annealing(

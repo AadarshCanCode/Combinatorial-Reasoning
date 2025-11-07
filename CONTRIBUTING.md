@@ -463,9 +463,9 @@ We use [Semantic Versioning](https://semver.org/):
 ### Resources
 
 - [Python Documentation](https://docs.python.org/3/)
-- [Gradio Documentation](https://gradio.app/docs/)
 - [OpenAI API Documentation](https://platform.openai.com/docs)
 - [Hugging Face Transformers](https://huggingface.co/docs/transformers/)
+- [Qiskit Optimization](https://qiskit.org/documentation/optimization/)
 
 ## Recognition
 
