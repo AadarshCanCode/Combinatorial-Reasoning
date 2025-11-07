@@ -1,6 +1,6 @@
-### Interactive Web Demo 
+### Interactive Interface (In Development)
 
-The easiest way to try CRQUBO is through our interactive Gradio web interface.
+We are redesigning the interactive UI as a standalone web application. Refer to [`UI plan.md`](UI%20plan.md) for the detailed proposal. In the meantime, the recommended way to explore CRQUBO is via the programmatic API and CLI.
 
 Note: the framework is modular — it supports multiple LLM and optimization backends. OpenAI is a common default, but you can configure other providers (local models, Hugging Face endpoints, Anthropic, or on-prem inference servers) via configuration or by implementing the simple backend adapter discussed below.
 
@@ -13,40 +13,17 @@ pip install -r requirements.txt
 export OPENAI_API_KEY="your-openai-api-key-here"
 # Windows PowerShell
 setx OPENAI_API_KEY "your-openai-api-key-here"
-
-# Launch the web demo
-python run_gradio_demo.py
 ```
+
 ### Run Examples
 
 ```bash
 # Run built-in examples
 python -m crqubo.main
 
-# Launch interactive web demo
-python run_gradio_demo.py
-
-# Run Jupyter notebook examples
+# Run Jupyter notebook examples (recommended for interactive exploration)
 jupyter notebook examples/crqubo_demo.ipynb
 ```
-The CRQUBO framework consists of eight modular components:
-
-## 📚 Usage Examples
-
-### Interactive Web Demo
-
-The easiest way to explore CRQUBO is through our interactive Gradio web interface:
-
-```bash
-python run_gradio_demo.py
-```
-
-Features:
-- 🎯 **One-click examples** for different reasoning domains
-- ⚙️ **Real-time configuration** of pipeline settings
-- 📊 **Performance analytics** and visualizations
-- 📝 **Query history** with export functionality
-- 🔄 **Live processing** with step-by-step reasoning display
 
 ### Causal Reasoning
 
@@ -180,29 +157,9 @@ pip install -r requirements.txt
 
 ## 🚀 Quick Start
 
-### Interactive Web Demo (Recommended)
+### Interactive UI
 
-The easiest way to try CRQUBO is through our interactive Gradio web interface:
-
-```bash
-# Install dependencies
-pip install -r requirements.txt
-
-# Set your OpenAI API key
-export OPENAI_API_KEY="your-openai-api-key-here"
-
-# Launch the web demo
-python run_gradio_demo.py
-```
-```bash
-# Set your OpenAI API key (Windows PowerShell example)
-setx OPENAI_API_KEY "your-openai-api-key-here"
-
-# Launch the web demo
-python run_gradio_demo.py
-```
-
-The demo will open in your browser at `http://localhost:7860` with a user-friendly interface for testing different reasoning tasks.
+A new browser-based interface is under active development. Until it is released, use the CLI or Python API for interactive experimentation. Follow updates in [`UI plan.md`](UI%20plan.md).
 
 ### Basic Usage
 
@@ -268,19 +225,6 @@ python -m crqubo.main "Solve for x: 2x + 5 = 13" \
 # Run built-in examples
 python -m crqubo.main
 
-# Launch interactive web demo
-python run_gradio_demo.py
-
-# Run Jupyter notebook examples
-jupyter notebook examples/crllm_demo.ipynb
-```
-```bash
-# Run built-in examples
-python -m crqubo.main
-
-# Launch interactive web demo
-python run_gradio_demo.py
-
 # Run Jupyter notebook examples
 jupyter notebook examples/crllm_demo.ipynb
 ```
@@ -326,21 +270,6 @@ The CRLLM framework consists of eight modular components:
 8. **Reason Verifier**: Validates logical consistency using theorem provers
 
 ## 📚 Usage Examples
-
-### Interactive Web Demo
-
-The easiest way to explore CRLLM is through our interactive Gradio web interface:
-
-```bash
-python run_gradio_demo.py
-```
-
-Features:
-- 🎯 **One-click examples** for different reasoning domains
-- ⚙️ **Real-time configuration** of pipeline settings
-- 📊 **Performance analytics** and visualizations
-- 📝 **Query history** with export functionality
-- 🔄 **Live processing** with step-by-step reasoning display
 
 ### Causal Reasoning
 
