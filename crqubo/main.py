@@ -7,10 +7,13 @@ including command-line interface and example usage.
 
 import argparse
 import json
+import logging
 import sys
 from typing import Any, Dict, Optional
 
 from .core import CRLLMPipeline
+
+logger = logging.getLogger(__name__)
 from .modules import (
     CombinatorialOptimizer,
     FinalInference,
@@ -68,10 +71,10 @@ def load_config(config_path: str) -> Dict[str, Any]:
         with open(config_path, "r") as f:
             return json.load(f)
     except FileNotFoundError:
-        print(f"Warning: Config file {config_path} not found, using defaults")
+        logger.warning(f"Config file {config_path} not found, using defaults")
         return {}
     except json.JSONDecodeError as e:
-        print(f"Error parsing config file {config_path}: {e}")
+        logger.error(f"Error parsing config file {config_path}: {e}")
         return {}
 
 
@@ -135,8 +138,8 @@ def main():
         pipeline = create_default_pipeline(config)
 
         if args.verbose:
-            print("CRQUBO Pipeline created successfully")
-            print(f"Pipeline info: {pipeline.get_pipeline_info()}")
+            logger.info("CRQUBO Pipeline created successfully")
+            logger.debug(f"Pipeline info: {pipeline.get_pipeline_info()}")
 
         # Process query
         result = pipeline.process_query(
@@ -172,6 +175,7 @@ def main():
             print(f"\nResult saved to {args.output}")
 
     except Exception as e:
+        logger.exception(f"Error processing query: {e}")
         print(f"Error: {e}")
         if args.verbose:
             import traceback
